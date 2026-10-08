@@ -15,6 +15,7 @@
     "db:seed": "prisma db seed",
     "test": "npm run db:generate && vitest run",
     "test:api": "npm run db:generate && vitest run tests/tasks-api.test.ts",
+    "test:lifecycle": "npm run db:generate && vitest run tests/server-lifecycle.test.ts",
     "test:docs": "vitest run tests/openapi.test.ts",
     "docs:validate": "tsx scripts/validate-openapi.ts",
     "test:persistence": "npm run db:generate && vitest run tests/persistence.test.ts"

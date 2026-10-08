@@ -6,7 +6,7 @@ En Proceso o Completado.
 
 ## Avance actual
 
-Las partes 1 a 7 del plan están implementadas: frontend y backend con TypeScript,
+Las partes 1 a 8 del plan están implementadas: frontend y backend con TypeScript,
 npm workspaces, ESLint, Prettier, persistencia con Prisma y SQLite y una API para
 listar, crear, editar y eliminar tareas. El frontend permite completar las cuatro operaciones. El backend verifica
 la conexión y las tablas al arrancar y ofrece un endpoint de salud.
@@ -17,7 +17,9 @@ migración versionada, restricciones de datos, un seed opcional y pruebas de per
 La API está documentada con OpenAPI y Swagger UI. El listado de React incluye estados
 de carga, lista vacía y error, además de actualización y reintento. Un formulario reutilizable
 con React Hook Form y Zod permite crear y editar, y un diálogo identifica la tarea antes de
-confirmar su eliminación. GitHub Actions corresponde a la parte 8.
+confirmar su eliminación. La parte 8 incorpora una prueba con reinicio real del backend
+y un workflow de GitHub Actions para verificar el proyecto en Windows y Linux.
+La ejecución remota del workflow se confirma después de publicar los cambios manualmente.
 
 ## Requisitos
 
@@ -512,6 +514,7 @@ responsabilidad de Zod y de las restricciones de la base.
 | `npm run docs:validate`    | Valida la especificación OpenAPI y sus referencias                                 |
 | `npm run test:docs`        | Comprueba los ejemplos y esquemas de la documentación                              |
 | `npm run test:frontend`    | Verifica listado, CRUD, validaciones, confirmación, errores y cancelación en React |
+| `npm run test:lifecycle`   | Comprueba el CRUD por HTTP y la persistencia después de reiniciar el backend       |
 | `npm test`                 | Ejecuta todas las pruebas del frontend y backend                                   |
 | `npm run check`            | Ejecuta lint, formato, validación OpenAPI, tipos, compilación y todas las pruebas  |
 
@@ -535,6 +538,28 @@ y los datos guardados. Solo los fallos internos se simulan para verificar la res
 También verifican que la edición conserve los campos protegidos, que las operaciones
 afecten solo a la tarea indicada, los identificadores inválidos, las tareas inexistentes
 y el flujo completo de crear, editar, consultar y eliminar.
+
+La prueba `test:lifecycle` inicia un servidor real en un puerto disponible y usa su propia
+base temporal. Crea, consulta y edita una tarea, reinicia el proceso y vuelve a consultarla.
+Después la elimina y reinicia de nuevo para comprobar que no reaparece. También verifica
+que OpenAPI siga disponible tras el reinicio. Está incluida en `npm test` y `npm run check`.
+
+## Verificación y GitHub Actions (parte 8)
+
+El workflow `.github/workflows/ci.yml` se ejecuta en cada push, pull request y ejecución
+manual. Utiliza Node desde `.nvmrc`, instala con `npm ci` y verifica lint, formato,
+OpenAPI, tipos, todas las pruebas y la compilación de ambos proyectos. La matriz ejecuta
+los controles en `ubuntu-latest` y `windows-latest` para detectar diferencias de plataforma.
+
+Las acciones están fijadas por SHA, el token solo tiene permiso de lectura del código y
+la caché conserva descargas de npm. Las variables del workflow son valores de prueba;
+no necesita secretos ni archivos `.env`. Las pruebas crean sus propias bases temporales.
+
+El recorrido manual completo y los pasos para revisar una ejecución remota están en
+[docs/verificacion.md](docs/verificacion.md). Después del push, abre **Actions → CI**
+en GitHub y comprueba que ambos trabajos de calidad del commit publicado estén verdes.
+Si alguno falla, revisa el primer paso fallido, corrige el problema y vuelve a publicar
+manualmente. Los controles locales no sustituyen esta comprobación remota.
 
 Las salidas se generan en `frontend/dist` y `backend/dist`, y no se incluyen en Git.
 
@@ -596,9 +621,12 @@ backend/
   tests/              Pruebas de persistencia e integración de la API
     helpers/openapi.ts Validación del contrato en las pruebas HTTP
     openapi.test.ts    Validación de esquemas y ejemplos OpenAPI
+    server-lifecycle.test.ts CRUD con proceso real y reinicios
   docs/openapi.yaml   Contrato explícito de la API
   scripts/validate-openapi.ts Verificación de la especificación
   prisma.config.ts    Configuración de la CLI y las migraciones
+.github/workflows/ci.yml Verificaciones automáticas en Windows y Linux
+docs/verificacion.md  Cobertura y recorrido manual del CRUD; revisión de CI
 eslint.config.js      Reglas de JavaScript, TypeScript y React
 tsconfig.base.json    Opciones compartidas de TypeScript
 ```
@@ -620,7 +648,7 @@ indirectas de la CLI, con versiones corregidas de sus avisos de seguridad. No im
 el uso de MySQL por la aplicación. La generación, las migraciones y las pruebas verifican
 la compatibilidad de esos ajustes.
 
-## Commit y push manuales de la parte 7
+## Commit y push manuales de la parte 8
 
 Los commits y push los realiza el candidato. Git ya está inicializado; no es necesario
 volver a ejecutar `git init`. Antes de publicar:
@@ -629,9 +657,9 @@ volver a ejecutar `git init`. Antes de publicar:
 npm run check
 git status
 git diff
-git add README.md package-lock.json frontend
+git add README.md package.json backend/package.json backend/tests/server-lifecycle.test.ts .github/workflows/ci.yml docs/verificacion.md
 git diff --cached
-git commit -m "feat: crear y editar tareas con confirmación de eliminación"
+git commit -m "test: verificar el CRUD y configurar GitHub Actions"
 git push
 ```
 
@@ -639,5 +667,6 @@ Si la rama aún no tiene seguimiento remoto, utiliza `git push -u origin main` e
 de `git push`, después de configurar el remoto de tu repositorio.
 
 El momento de publicar es después de comprobar el arranque y ejecutar las verificaciones.
+Después del push, confirma en Actions que los dos trabajos de CI del mismo commit pasaron.
 No incluyas `.env`, `node_modules`, `dist`, el cliente generado, bases locales ni los archivos internos de
 generación de documentos. Los archivos originales del Word se conservan localmente.

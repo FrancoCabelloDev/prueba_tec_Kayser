@@ -31,6 +31,7 @@
     "test": "npm run test --workspaces",
     "test:frontend": "npm run test --workspace frontend",
     "test:api": "npm run test:api --workspace backend",
+    "test:lifecycle": "npm run test:lifecycle --workspace backend",
     "test:docs": "npm run test:docs --workspace backend",
     "docs:validate": "npm run docs:validate --workspace backend",
     "test:persistence": "npm run test:persistence --workspace backend"
