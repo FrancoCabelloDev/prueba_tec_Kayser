@@ -15,7 +15,10 @@ validación, controlador, servicio y repositorio sin introducir servicios adicio
 
 `Task.responsibleId` referencia a `TeamMember`, el catálogo de integrantes sin
 autenticación. La consulta del catálogo está disponible desde la parte 11 y la
-asignación por identificador desde la parte 12. La eliminación de tareas es física. Si se
+asignación por identificador desde la parte 12. El catálogo inicial contiene a Franco
+Cabello y Oscar Perez; sus códigos son estables y sus identificadores dependen de cada base.
+No son cuentas de acceso ni hay rutas administrativas para altas o bajas.
+La eliminación de tareas es física. Si se
 incorporan recuperación, permisos o historial, será necesario modificar el modelo,
 la API, las pruebas y la documentación.
 
@@ -91,6 +94,7 @@ backend/
     helpers/openapi.ts Validación del contrato en las pruebas HTTP
     openapi.test.ts    Validación de esquemas y ejemplos OpenAPI
     server-lifecycle.test.ts CRUD con proceso real y reinicios
+    assignment-migration.test.ts Conservación y reversión de la migración de asignaciones
     team-members.test.ts Catálogo, restricciones, seed y migración desde el esquema anterior
     team-members-api.test.ts Consulta HTTP, activos, homónimos, errores y compatibilidad del CRUD
   docs/openapi.yaml   Contrato explícito de la API
@@ -119,6 +123,13 @@ consulta primero la asignación actual: una tarea inexistente devuelve 404 y una
 asignación inactiva solo puede conservarse en esa misma tarea. La respuesta selecciona
 los campos públicos de la tarea y del integrante. La clave foránea protege la
 existencia y las bajas físicas; el estado activo se valida dentro de la transacción.
+
+La migración de asignaciones conserva los datos anteriores y la secuencia de tareas.
+Una coincidencia exacta y única de nombre reutiliza al integrante existente, incluso
+si está inactivo. Si no hay una coincidencia única, crea un integrante histórico
+inactivo conservando el nombre original; no deduce identidades entre homónimos.
+La migración no depende del seed. Cargar el catálogo inicial después no modifica ni
+reactiva esos registros. [Instalación y actualización con respaldo](asignaciones.md).
 
 Prisma, su cliente y el adaptador SQLite están fijados en la misma versión estable 7.10.0.
 El repositorio incluye overrides acotados para `deepmerge-ts` y `mysql2`, dependencias

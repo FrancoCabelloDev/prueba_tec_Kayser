@@ -94,12 +94,19 @@ npm run db:status
 
 - `db:generate` crea el cliente Prisma que necesita el backend.
 - `db:migrate` crea el archivo SQLite y aplica las migraciones versionadas.
-- `db:seed:members` carga los integrantes necesarios para asignar tareas.
+- `db:seed:members` carga los integrantes necesarios para asignar tareas; es obligatorio
+  en una instalación nueva.
 - `db:status` debe indicar que las migraciones están al día.
 
 Con la configuración inicial, se crea **`backend/prisma/dev.db`**. La primera
 instalación deja la tabla de tareas vacía. Volver a aplicar las migraciones no borra
 las tareas ni repite las migraciones ya aplicadas.
+
+El catálogo inicial contiene **TI-001 — Franco Cabello** y **TI-002 — Oscar Perez**.
+Repetir `db:seed:members` no duplica registros ni cambia nombres, estados o fechas
+existentes. Los integrantes no son cuentas de acceso. El formulario consulta los
+activos y envía el `responsibleId` del seleccionado; los identificadores se generan
+en cada base y no deben suponerse valores fijos. [Guía del catálogo](docs/integrantes.md).
 
 **Opcional:** para cargar tres tareas de ejemplo, una por estado:
 
@@ -107,23 +114,9 @@ las tareas ni repite las migraciones ya aplicadas.
 npm run db:seed
 ```
 
-El seed solo inserta ejemplos cuando la tabla está vacía. Si contiene tareas, conserva
-los datos existentes. No es necesario ejecutarlo para usar la aplicación.
-
-**Catálogo de integrantes (parte 10):** después de migrar, carga los integrantes
-indicados por el candidato:
-
-```bash
-npm run db:seed:members
-```
-
-Se registran **TI-001 — Franco Cabello** y **TI-002 — Oscar Perez** en `TeamMember`.
-Repetir la carga no duplica registros ni cambia nombres, estados o fechas existentes.
-El formulario consulta `GET /api/team-members` y permite elegir un integrante activo.
-El backend recibe su `responsibleId` y devuelve también su nombre y código.
-El seed de tareas de ejemplo requiere TI-001 y TI-002 activos; cargar integrantes
-no crea tareas.
-[Guía del catálogo](docs/integrantes.md).
+El seed solo inserta ejemplos cuando la tabla está vacía y requiere TI-001 y TI-002
+cargados y activos. Si ya hay tareas, conserva los datos existentes. No es necesario
+ejecutarlo para usar la aplicación; cargar integrantes no crea tareas.
 
 ### 5. Iniciar frontend y backend
 
@@ -147,9 +140,8 @@ Los puertos 3000 y 5173 deben estar disponibles. Para detener ambos proyectos, p
 
 Para abrir el proyecto después de la primera instalación, basta con ejecutar
 `npm run dev` desde la raíz. No vuelvas a copiar los `.env` ni a cargar ejemplos.
-Si descargaste cambios con nuevas migraciones, ejecuta antes `npm run db:generate`
-y `npm run db:migrate`. Para incorporar el catálogo de la parte 10, ejecuta también
-`npm run db:seed:members`.
+Para actualizar una instalación con datos, sigue la [guía de actualización con
+respaldo](docs/asignaciones.md#actualizar-una-instalación-con-datos).
 
 ### Iniciar en dos terminales
 
@@ -196,6 +188,8 @@ de prueba propia para este recorrido. [Recorrido completo y cobertura](docs/veri
 
 En Swagger, abre una operación, pulsa **Try it out**, completa los datos y pulsa
 **Execute**. Las escrituras se realizan sobre la misma base que utiliza React.
+Consulta primero **GET /team-members** y utiliza un identificador devuelto como
+`responsibleId` en POST y PUT; los valores de ejemplo no garantizan que ese integrante exista.
 La API recibe `PENDIENTE`, `EN_PROCESO` y `COMPLETADO`; React muestra sus etiquetas
 en español. PUT exige los cuatro campos editables, incluso `description`, que admite
 `null`. [Ejemplos, reglas y errores HTTP](docs/api.md).
@@ -288,6 +282,11 @@ paginación, filtros, historial ni recuperación de tareas eliminadas. Posibles 
 usuarios y permisos, filtros y paginación, control de ediciones concurrentes y
 eliminación lógica si el negocio necesita recuperación.
 
+Desactivar integrantes requiere una actualización explícita en la base; no hay
+operaciones HTTP de administración del catálogo. Los responsables antiguos sin una
+coincidencia exacta y única se conservan como integrantes históricos inactivos al migrar.
+Sus tareas siguen visibles y pueden conservar la asignación o reasignarse a un activo.
+
 ## Guías adicionales
 
 - [Solución de problemas de instalación y ejecución](docs/solucion-de-problemas.md).
@@ -299,6 +298,11 @@ eliminación lógica si el negocio necesita recuperación.
 - [API, Swagger y ejemplos de solicitudes](docs/api.md).
 - [Pruebas, recorrido manual y GitHub Actions](docs/verificacion.md).
 - [Publicación manual, comprobación de entrega y revisión técnica](docs/entrega.md).
+
+La entrega se verificó en Windows desde un clon limpio con los ejemplos de entorno,
+la carga de integrantes y las pruebas de actualización con datos anteriores.
+Consulta el [registro de la parte 14](docs/verificacion.md#comprobación-de-la-parte-14)
+para conocer los resultados y el alcance de la comprobación.
 
 Se versionan el código, los ejemplos de entorno, el lockfile y las migraciones.
 Los `.env`, archivos SQLite, `node_modules`, cliente Prisma generado, `dist` y

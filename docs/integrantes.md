@@ -1,4 +1,4 @@
-# Catálogo de integrantes — Partes 10 a 12
+# Catálogo de integrantes
 
 [Volver al README](../README.md). [Plan completo de la ampliación](plan-integrantes.md).
 
@@ -15,7 +15,8 @@ no deben suponerse valores fijos. Los integrantes no son cuentas de acceso.
 ## Alcance implementado
 
 `TeamMember` contiene `id`, `code`, `name`, `isActive`, `createdAt` y `updatedAt`.
-Una migración nueva crea la tabla sin modificar `Task`. Desde la parte 11 el catálogo
+La migración de catálogo crea esta tabla sin modificar `Task`; una migración posterior
+añade la relación `Task.responsibleId`. Desde la parte 11 el catálogo
 activo se consulta mediante HTTP y Swagger. El formulario permite elegir un responsable
 mediante un selector desde la parte 12, enviando `responsibleId` y consultando el
 nombre del integrante en las respuestas. [Asignaciones y migración](asignaciones.md).
@@ -70,6 +71,12 @@ en `team-members.data.ts`, revisa las pruebas del catálogo confirmado y ejecuta
 carga. Mantén cada código asociado a la misma persona. Cambiar un nombre en ese
 archivo no modifica una fila ya cargada; renombrar o desactivar registros existentes
 requiere una actualización explícita en la base. No hay pantalla administrativa en este alcance.
+
+Al desactivar un integrante, sus tareas permanecen visibles y pueden conservar la
+asignación al editar. Queda excluido del catálogo para nuevas asignaciones. La clave
+foránea impide eliminar físicamente su fila mientras tenga tareas; cargar el catálogo
+otra vez no lo reactiva. La actualización y el respaldo se explican en la
+[guía de asignaciones](asignaciones.md#actualizar-una-instalación-con-datos).
 
 ## Ver los registros con DataGrip
 
@@ -155,4 +162,5 @@ git commit -m "feat: consultar integrantes activos desde la API"
 git push
 ```
 
-Confirma CI en verde para este commit antes de continuar con la parte 12.
+Los comandos anteriores se conservan como referencia de publicación de las partes
+10 y 11. Para el último avance y el correo utiliza la [guía de entrega final](entrega.md).

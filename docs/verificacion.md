@@ -117,7 +117,7 @@ También puedes entrar en Actions → CI → Run workflow para repetir una compr
 La ejecución real en GitHub se confirma después del push. Una comprobación local exitosa
 no demuestra por sí sola que ambos runners remotos hayan finalizado correctamente.
 
-## Comprobación final de instalación desde cero
+## Comprobación de instalación desde cero — Parte 9
 
 El 8 de octubre de 2026 se verificó la entrega en Windows con Node.js 24.21.0 y npm
 11.19.0. Se clonó GitHub en una carpeta distinta usando el commit `98c1832` de la
@@ -234,4 +234,57 @@ El recorrido utilizó 3001 y 5174; los dos servidores temporales se detuvieron a
 terminar. Esta parte no modifica la base habitual ni añade migraciones o dependencias.
 Las pruebas forman parte de los comandos existentes y CI las ejecutará sin cambiar
 el workflow. El resultado remoto se confirmará después del commit y push manuales.
-La parte 14 sigue pendiente para consolidar las instrucciones y verificar la entrega limpia.
+La comprobación final de la parte 14 se registra a continuación; este apartado conserva
+los resultados del avance de pruebas.
+
+## Comprobación de la parte 14
+
+El 8 de octubre de 2026 se validó la entrega en Windows con Node.js 24.21.0 y npm
+11.19.0. Se creó un clon local separado del commit `9d551bf` de la parte 13 y se
+copiaron únicamente las guías actualizadas de esta parte antes de publicarlas.
+El clon inicial no contenía `node_modules`, `.env`, SQLite, cliente Prisma generado
+ni compilaciones. No se copió la base habitual del candidato.
+
+Resultados comprobados:
+
+- `npm ci` terminó correctamente usando el lockfile, sin instalar dependencias por workspace.
+- Se copiaron ambos `.env.example` y se ejecutaron desde la raíz `db:generate`,
+  `db:migrate`, `db:seed:members` y `db:status`. Las tres migraciones quedaron al día.
+  La instalación dejó cero tareas y los dos integrantes activos: TI-001 — Franco
+  Cabello y TI-002 — Oscar Perez. No se ejecutó el seed opcional para iniciar la aplicación.
+- `npm run check` en el clon aprobó lint, formato, OpenAPI, tipos, compilación y
+  **292 pruebas**: 57 de frontend y 235 de backend.
+- La suite probó la actualización de una base con las dos migraciones anteriores
+  y tareas con responsables de texto. Aplicó la migración final mediante Prisma,
+  conservó contenido, identificadores, fechas, integrantes activos e históricos,
+  repitió migración y seed y consultó las mismas relaciones tras un reinicio real.
+  La secuencia conservada produjo correctamente la siguiente tarea con id 106.
+- Los comandos documentados de desarrollo iniciaron React y Node en puertos alternativos.
+  En React se creó una tarea asignada a Oscar, se recargó, se editaron los datos,
+  se reasignó a Franco y se cambió a Completado. El reinicio del backend mantuvo
+  tarea, fechas y relación; Actualizar mostró los mismos datos.
+- Salud devolvió `status: ok`. Swagger ejecutó GET /team-members con `200` y el
+  ejemplo POST /tasks con `201`, `responsibleId` y el objeto público de Franco.
+- Prisma Studio se abrió con el `--url` documentado y mostró `Task`, `responsibleId`
+  y `TeamMember` con los integrantes cargados. Las consultas SQL documentadas para
+  DataGrip se ejecutaron sobre el SQLite del clon; integridad y claves foráneas sin errores.
+- Se eliminaron mediante HTTP las dos tareas creadas durante el recorrido y se
+  verificó que la tabla quedó vacía con el catálogo intacto. El seed opcional creó
+  tres tareas, una por estado; repetirlo conservó las mismas tres filas.
+- Se recompiló con la URL de API del clon para comprobar la ejecución compilada
+  y el origen CORS de la vista previa según el README. `start:backend` sirvió salud,
+  Swagger y OpenAPI; `preview:frontend` mostró las tres tareas y sus integrantes.
+- Se comprobaron los enlaces locales, los nombres de scripts citados y el formato
+  de las instrucciones finales. No cambiaron dependencias, migraciones ni código funcional.
+- El ejemplo PowerShell de respaldo se ejecutó sobre el SQLite del clon, con todos
+  sus procesos detenidos. La copia y el archivo original coincidieron por SHA-256.
+
+Se utilizaron 3001 y 5174 para desarrollo, 5556 para Studio y 4173 para la vista previa.
+Los procesos de prueba se detuvieron al terminar. La evidencia de la tarea conservada
+tras reiniciar está en `.document_work/part14-clon-verificado.png`, excluida de Git.
+El clon y su SQLite permanecen fuera del repositorio. La instalación habitual no se modificó.
+
+Esta validación local corresponde a Windows. Los jobs remotos de Windows y Ubuntu
+se comprobarán después del commit y push manuales de la parte 14, siguiendo la
+[guía de entrega](entrega.md#commit-y-push-manuales-de-la-parte-14). El commit, el
+push y el envío por correo siguen a cargo del candidato.

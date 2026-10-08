@@ -218,8 +218,9 @@ Los errores inesperados se registran en la consola del backend. La respuesta pú
 omite detalles de Prisma, SQL y trazas internas. Las validaciones fallidas no escriben
 en la base de datos. Al editar y eliminar, el repositorio traduce el error de registro
 inexistente de Prisma (`P2025`) a un resultado que el servicio convierte en `404`.
-La operación se ejecuta directamente sobre el identificador, sin una consulta previa
-de existencia que pueda quedar desactualizada entre solicitudes concurrentes.
+Al editar, la asignación actual se consulta dentro de la misma transacción que
+valida al integrante y escribe los cambios. Al eliminar, se opera directamente sobre
+el identificador; no se consulta previamente fuera de una transacción.
 
 ### CORS
 

@@ -5,16 +5,17 @@ indique otra carpeta. Resuelve el primer error antes de continuar con los siguie
 
 ## Herramientas o dependencias
 
-| Mensaje o síntoma                                                             | Qué revisar y cómo resolverlo                                                                                                                           |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `node`, `npm` o `git` no se reconoce                                          | Instala la herramienta correspondiente y abre una terminal nueva. Verifica `node --version`, `npm --version` y `git --version`.                         |
-| `npm.ps1` no se puede ejecutar por la política de PowerShell                  | Usa `npm.cmd` en lugar de `npm`, o ejecuta los comandos en una terminal CMD. Para `npx`, usa `npx.cmd`. No necesitas cambiar la política de PowerShell. |
-| `ENOENT` al buscar `package.json`, o script no encontrado                     | Abre la raíz del repositorio: debe contener `frontend`, `backend` y el `package.json` con `workspaces`.                                                 |
-| Node incompatible, `EBADENGINE` o módulo nativo `better-sqlite3` incompatible | Selecciona Node 24.21.0, detén los servidores del proyecto y vuelve a ejecutar `npm ci` desde la raíz. La instalación debe finalizar correctamente.     |
-| `npm ci` falla por diferencias con `package-lock.json`                        | Comprueba que descargaste los manifiestos y el lockfile del mismo commit. No borres el lockfile ni uses versiones distintas para ocultar el error.      |
-| Fallo de descarga, conexión o certificado durante `npm ci`                    | Revisa Internet y la configuración de proxy o certificados de tu red. Reintenta cuando la conexión esté disponible; conserva las verificaciones TLS.    |
-| `Cannot find module` o cliente Prisma sin generar                             | Completa `npm ci`, configura `backend/.env` y ejecuta `npm run db:generate`.                                                                            |
-| Archivo bloqueado o `EPERM` durante la instalación                            | Detén los servidores que ejecutan esta copia del proyecto. Cierra herramientas que bloqueen ese archivo y reintenta `npm ci`.                           |
+| Mensaje o síntoma                                                             | Qué revisar y cómo resolverlo                                                                                                                                         |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `node`, `npm` o `git` no se reconoce                                          | Instala la herramienta correspondiente y abre una terminal nueva. Verifica `node --version`, `npm --version` y `git --version`.                                       |
+| `npm.ps1` no se puede ejecutar por la política de PowerShell                  | Usa `npm.cmd` en lugar de `npm`, o ejecuta los comandos en una terminal CMD. Para `npx`, usa `npx.cmd`. No necesitas cambiar la política de PowerShell.               |
+| `ENOENT` al buscar `package.json`, o script no encontrado                     | Abre la raíz del repositorio: debe contener `frontend`, `backend` y el `package.json` con `workspaces`.                                                               |
+| Node incompatible, `EBADENGINE` o módulo nativo `better-sqlite3` incompatible | Selecciona Node 24.21.0, detén los servidores del proyecto y vuelve a ejecutar `npm ci` desde la raíz. La instalación debe finalizar correctamente.                   |
+| `npm ci` falla por diferencias con `package-lock.json`                        | Comprueba que descargaste los manifiestos y el lockfile del mismo commit. No borres el lockfile ni uses versiones distintas para ocultar el error.                    |
+| Fallo de descarga, conexión o certificado durante `npm ci`                    | Revisa Internet y la configuración de proxy o certificados de tu red. Reintenta cuando la conexión esté disponible; conserva las verificaciones TLS.                  |
+| `Cannot find module` o cliente Prisma sin generar                             | Completa `npm ci`, configura `backend/.env` y ejecuta `npm run db:generate`.                                                                                          |
+| Archivo bloqueado o `EPERM` durante la instalación                            | Detén los servidores que ejecutan esta copia del proyecto. Cierra herramientas que bloqueen ese archivo y reintenta `npm ci`.                                         |
+| Prisma muestra `Update available`                                             | Es un aviso informativo. Este proyecto fija Prisma, cliente y adaptador en 7.10.0; completa la instalación con esas versiones en lugar de actualizarlas por separado. |
 
 ## Variables o base de datos
 
@@ -27,6 +28,21 @@ indique otra carpeta. Resuelve el primer error antes de continuar con los siguie
 | Base bloqueada (`database is locked`)                                       | Termina o revierte las transacciones abiertas en DataGrip u otro editor SQLite y vuelve a intentar. No borres la base.                                     |
 | El seed no agregó ejemplos                                                  | Es el comportamiento esperado si ya existe una tarea: solo inserta ejemplos en una tabla vacía.                                                            |
 | No veo una tarea en DataGrip o Studio                                       | Comprueba que abriste el archivo indicado por `DATABASE_URL`, consulta `Task` y actualiza la vista. Otra copia del repositorio tiene otra base local.      |
+
+## Catálogo y asignación de responsables
+
+| Mensaje o síntoma                                                | Qué revisar y cómo resolverlo                                                                                                                                                                                                 |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No hay integrantes activos disponibles                           | Ejecuta `npm run db:seed:members` después de migrar. Comprueba `GET /api/team-members` y el archivo SQLite de esta copia. El seed conserva las bajas existentes.                                                              |
+| No se pudo cargar el catálogo                                    | Comprueba salud, URL de la API y CORS. Pulsa **Reintentar integrantes**; el formulario conserva los textos.                                                                                                                   |
+| El responsable seleccionado no existe o no está activo           | Consulta el catálogo otra vez y selecciona un integrante activo. En Swagger utiliza un id real, como número JSON, en `responsibleId`. Una baja posterior a abrir el formulario puede invalidar una asignación nueva.          |
+| Una tarea antigua muestra un responsable inactivo o `LEGACY-...` | La migración conservó su nombre sin deducir una identidad. Puedes conservar esa asignación al editar la misma tarea o reasignarla a un activo.                                                                                |
+| El seed de tareas solicita TI-001 y TI-002 activos               | Ejecuta `npm run db:seed:members`. Si esos códigos ya existen inactivos, el seed no los reactiva; conserva esa decisión o revisa explícitamente la baja antes de cargar ejemplos. Los ejemplos son opcionales.                |
+| La base impide eliminar un integrante                            | Tiene tareas que lo referencian. Conserva la fila y aplica una baja lógica con `isActive`; eliminar una tarea no elimina a su integrante. No hay pantalla administrativa.                                                     |
+| La migración de asignaciones rechaza un nombre anterior          | Un dato escrito directamente en SQL incumple las restricciones del catálogo. La migración revierte sus escrituras. Revisa el dato y el respaldo antes de corregirlo explícitamente; no trunques nombres ni reinicies la base. |
+
+El campo `responsible` de texto ya no se acepta en POST o PUT. Envía `responsibleId`
+y conserva los cuatro campos obligatorios de PUT. [Reglas y actualización con datos](asignaciones.md).
 
 Las variables que ya estén definidas en tu terminal pueden sobrescribir los valores
 de los `.env`. Para usar los ejemplos, abre una terminal nueva sin variables de otros

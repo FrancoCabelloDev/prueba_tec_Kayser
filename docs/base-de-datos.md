@@ -32,16 +32,16 @@ para evitar el error al abrir una base inexistente en Windows. Las migraciones q
 registradas en `_prisma_migrations`; `db:migrate` aplica únicamente las pendientes.
 
 ```bash
-# Opcional, después de generar y migrar
+# Opcional, después de generar, migrar y cargar los integrantes
 npm run db:seed
 ```
 
 El seed utiliza una transacción e inserta tres tareas, una por cada estado, solo si la
 tabla está vacía. Si ya hay tareas, conserva la información. Volver a ejecutarlo no
-duplica ejemplos. Desde la parte 12 exige que TI-001 y TI-002 estén cargados y activos;
+duplica ejemplos. Exige que TI-001 y TI-002 estén cargados y activos;
 ejecuta antes `npm run db:seed:members`. No se entrega `dev.db` en Git: cada instalación la crea con estos comandos.
 
-Desde la parte 10 también existe `TeamMember`, el catálogo de integrantes. Cárgalo
+`TeamMember` contiene el catálogo de integrantes. Cárgalo
 después de migrar con `npm run db:seed:members`: registra a Franco Cabello y Oscar
 Perez sin duplicarlos ni sobrescribir integrantes existentes. No crea tareas.
 [Reglas y uso del catálogo](integrantes.md).
@@ -106,7 +106,8 @@ npx prisma studio --port 5555 --browser none --url "file://./prisma/dev.db"
 ```
 
 Abre [http://127.0.0.1:5555](http://127.0.0.1:5555), selecciona `Task` y actualiza sus
-datos después de crear o editar desde React. Deja la terminal abierta y detén Studio
+datos después de crear o editar desde React. También puedes abrir `TeamMember` para
+consultar los integrantes y su estado. Deja la terminal abierta y detén Studio
 con **Ctrl+C**. Si regresas a los comandos del README desde esa terminal, usa `cd ..`.
 
 El `--url` evita el error de reconocimiento del protocolo que presenta Studio con
@@ -118,8 +119,11 @@ selecciona ese archivo en DataGrip o adapta la ruta de Studio.
 ## Conservar la información
 
 Cerrar el backend o reiniciar la computadora no elimina las tareas. Para copiar la
-base, detén primero el backend y los editores SQLite y copia el archivo local a una
-ubicación de respaldo. No publiques la base en Git ni ejecutes `migrate reset` como
+base, detén primero el backend, Prisma Studio y los editores SQLite. Con todas las
+conexiones cerradas, copia el archivo local a una ubicación de respaldo. Si se utiliza
+WAL y quedan archivos auxiliares, utiliza un respaldo consistente de SQLite en lugar
+de copiar solamente el `.db` con conexiones abiertas. La [guía de actualización](asignaciones.md#actualizar-una-instalación-con-datos)
+incluye los pasos de respaldo y migración. No publiques la base en Git ni ejecutes `migrate reset` como
 parte de la instalación. Las pruebas automatizadas utilizan otras bases temporales.
 
 ## Modelo y restricciones

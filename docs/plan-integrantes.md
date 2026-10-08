@@ -2,8 +2,9 @@
 
 Este documento amplía las partes 1 a 9 ya implementadas. La parte 10 incorpora el
 catálogo inicial y la parte 11 añade su consulta HTTP. La parte 12 conecta la relación
-en SQLite, la API y React; las partes 13 y 14 describen trabajo pendiente.
-Los commits y push de los nuevos avances serán ejecutados manualmente por el candidato.
+en SQLite, la API y React; la parte 13 consolida las pruebas y la parte 14 valida
+la entrega y sus instrucciones. Las partes 10 a 14 están implementadas.
+Los commits y push de los avances son ejecutados manualmente por el candidato.
 
 ## Objetivo y alcance
 
@@ -19,7 +20,8 @@ como ampliaciones independientes.
 
 El candidato confirmó los integrantes **Franco Cabello** y **Oscar Perez**. Se les
 asignan los códigos internos **TI-001** y **TI-002**, respectivamente. Los nombres
-del seed de tareas anterior siguen siendo datos de demostración independientes.
+del seed de tareas anterior se conservan al migrar tareas existentes. Los ejemplos
+actuales se asignan a los integrantes confirmados, buscándolos por código.
 
 ## Reglas de negocio
 
@@ -254,7 +256,10 @@ Momento del push: después de los controles completos y el recorrido manual. Con
 
 ## Parte 14 — Actualizar las instrucciones y validar la entrega
 
-Trabajo:
+Implementada el 8 de octubre de 2026. Los resultados y límites de la validación local
+están en la [guía de verificación](verificacion.md#comprobación-de-la-parte-14).
+
+Trabajo realizado:
 
 - Actualizar README, arquitectura, API, base de datos, solución de problemas y verificación.
 - Explicar el catálogo inicial, las bajas y las asignaciones de tareas antiguas.
@@ -264,7 +269,7 @@ Trabajo:
 - Validar una copia limpia con los `.env.example`, sin copiar la base habitual.
 - Verificar también una actualización desde el esquema anterior con datos existentes.
 
-Secuencia final prevista desde la raíz, después de clonar y copiar los `.env.example`:
+Secuencia final desde la raíz, después de clonar y copiar los `.env.example`:
 
 ```bash
 npm ci

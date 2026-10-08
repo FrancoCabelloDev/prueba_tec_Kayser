@@ -1,4 +1,4 @@
-# Asignación de tareas a integrantes — Parte 12
+# Asignación de tareas a integrantes
 
 [Volver al README](../README.md). [Catálogo de integrantes](integrantes.md).
 
@@ -35,11 +35,55 @@ Ese comando busca los integrantes por código, sin asumir identificadores fijos.
 Si falta alguno o está inactivo y la tabla de tareas está vacía, explica el problema
 y no inserta ejemplos. Si ya hay tareas, las conserva.
 
-Al actualizar una instalación anterior, detén los servidores y cierra transacciones
-abiertas en DataGrip. Guarda un respaldo de SQLite antes de aplicar la migración.
-Genera Prisma, aplica las migraciones, carga el catálogo y vuelve a iniciar ambos
-proyectos. Si utilizas el backend compilado, vuelve a compilarlo también.
-No uses `migrate reset` ni modifiques migraciones anteriores.
+## Actualizar una instalación con datos
+
+Utiliza la misma copia del proyecto y conserva sus `.env` y su archivo SQLite.
+Los pasos siguientes no requieren ejecutar el seed opcional de tareas:
+
+1. Detén frontend y backend con **Ctrl+C**. Detén también Prisma Studio y desconecta
+   DataGrip de esta base después de confirmar o revertir las transacciones abiertas.
+2. Guarda un respaldo del archivo que realmente utiliza `DATABASE_URL`. Para la
+   ruta predeterminada, este ejemplo de PowerShell crea una carpeta de respaldo fechada:
+
+   ```powershell
+   $taskBackupDirectory = "backend/prisma/respaldo-$(Get-Date -Format yyyyMMdd-HHmmss)"
+   New-Item -ItemType Directory -Path $taskBackupDirectory | Out-Null
+   Copy-Item -LiteralPath 'backend/prisma/dev.db' -Destination $taskBackupDirectory
+   foreach ($taskAuxiliaryFile in @('backend/prisma/dev.db-wal', 'backend/prisma/dev.db-shm', 'backend/prisma/dev.db-journal')) {
+       if (Test-Path -LiteralPath $taskAuxiliaryFile) {
+           Copy-Item -LiteralPath $taskAuxiliaryFile -Destination $taskBackupDirectory
+       }
+   }
+   ```
+
+   Copia con todas las conexiones cerradas. Si cambiaste la ruta, respalda ese archivo
+   y sus auxiliares. En Linux/macOS puedes copiar los mismos archivos cerrados a una
+   carpeta de respaldo distinta. Conserva el respaldo hasta comprobar la actualización.
+
+3. Descarga los cambios y actualiza dependencias, cliente y esquema desde la raíz:
+
+   ```bash
+   git pull --ff-only
+   npm ci
+   npm run db:generate
+   npm run db:migrate
+   npm run db:seed:members
+   npm run db:status
+   npm run check
+   npm run dev
+   ```
+
+   Antes de `git pull`, confirma o guarda tus cambios locales. Si utilizas el backend
+   compilado, `npm run check` ya recompila ambos proyectos; sigue después los pasos
+   de compilación local del README con el origen CORS correspondiente.
+
+4. Comprueba que las tareas anteriores siguen visibles, con sus datos y responsables.
+   Reinicia el backend y consulta otra vez. Si un responsable histórico está inactivo,
+   puedes conservarlo en esa tarea o reasignarla a un integrante activo.
+
+No uses `migrate reset`, no borres la base ni modifiques migraciones anteriores.
+Si la migración falla, detente y conserva tanto la base como el respaldo; revisa el
+primer error según la [guía de solución de problemas](solucion-de-problemas.md).
 
 ## Conservación de tareas anteriores
 
@@ -113,9 +157,11 @@ selector, la precarga asíncrona, el catálogo vacío, el reintento, la conserva
 de asignaciones inactivas, las claves foráneas y la migración de tareas anteriores.
 La parte 13 añade regresiones de bajas posteriores a la carga, homónimos, eliminación
 sin afectar otras tareas, respuestas tardías de formularios cerrados y actualización
-con reinicio real. La parte 14 consolidará la entrega y la comprobación desde una copia limpia.
+con reinicio real. La [guía de entrega](entrega.md) consolida las instrucciones y
+el [registro de verificación](verificacion.md#comprobación-de-la-parte-14) describe la comprobación desde una copia limpia.
 
-Después de revisar y verificar el avance, publica manualmente desde la raíz:
+Estos comandos corresponden al avance de la parte 12. Para la entrega final utiliza
+el commit de la parte 14 en la [guía de entrega](entrega.md#commit-y-push-manuales-de-la-parte-14):
 
 ```bash
 git status
