@@ -1,63 +1,12 @@
-import { z } from 'zod';
+import { requestJson } from '../../lib/api';
+export { ApiError as TaskApiError } from '../../lib/api';
 import { env } from '../../config/env';
 import { taskListSchema, taskSchema } from './tasks.schema';
 import type { Task, TaskInput } from './tasks.types';
 
 const tasksUrl = `${env.VITE_API_URL.replace(/\/+$/, '')}/tasks`;
-const errorResponseSchema = z.object({
-  error: z.object({
-    message: z.string().trim().min(1),
-    fields: z.record(z.string(), z.array(z.string())).optional(),
-  }),
-});
-
-export class TaskApiError extends Error {
-  constructor(
-    message: string,
-    public readonly status: number,
-    public readonly fields: Record<string, string[]> = {},
-  ) {
-    super(message);
-    this.name = 'TaskApiError';
-  }
-}
-
-async function request(url: string, options: RequestInit, fallback: string): Promise<unknown> {
-  let response: Response;
-  try {
-    response = await fetch(url, options);
-  } catch (error) {
-    if (options.signal?.aborted) throw error;
-    throw new Error(
-      'No pudimos conectar con el servidor. Comprueba la conexión y vuelve a intentar.',
-      { cause: error },
-    );
-  }
-
-  if (response.status === 204 && options.method === 'DELETE') return undefined;
-
-  let body: unknown;
-  try {
-    body = await response.json();
-  } catch {
-    throw new Error(
-      'El servidor devolvió una respuesta que no podemos mostrar. Vuelve a intentar.',
-    );
-  }
-
-  if (!response.ok) {
-    const result = errorResponseSchema.safeParse(body);
-    throw new TaskApiError(
-      result.success ? result.data.error.message : fallback,
-      response.status,
-      result.success ? result.data.error.fields : undefined,
-    );
-  }
-  return body;
-}
-
 export async function listTasks(signal: AbortSignal): Promise<Task[]> {
-  const body = await request(
+  const body = await requestJson(
     tasksUrl,
     { headers: { Accept: 'application/json' }, signal },
     'No pudimos consultar las tareas. Vuelve a intentar.',
@@ -69,7 +18,7 @@ export async function listTasks(signal: AbortSignal): Promise<Task[]> {
 }
 
 async function saveTask(url: string, method: 'POST' | 'PUT', input: TaskInput): Promise<Task> {
-  const body = await request(
+  const body = await requestJson(
     url,
     {
       method,
@@ -95,7 +44,7 @@ export function updateTask(id: number, input: TaskInput): Promise<Task> {
 }
 
 export async function deleteTask(id: number): Promise<void> {
-  const body = await request(
+  const body = await requestJson(
     `${tasksUrl}/${id}`,
     { method: 'DELETE', headers: { Accept: 'application/json' } },
     'No pudimos eliminar la tarea. Vuelve a intentar.',

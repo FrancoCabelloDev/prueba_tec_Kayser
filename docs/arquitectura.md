@@ -13,10 +13,9 @@ local. Prisma aporta un cliente tipado, migraciones y consultas parametrizadas.
 No se utilizan procedimientos almacenados. Para este CRUD pequeño se separan rutas,
 validación, controlador, servicio y repositorio sin introducir servicios adicionales.
 
-El responsable de `Task` todavía se guarda como texto libre. La parte 10 añade
-`TeamMember` como catálogo independiente de integrantes, sin autenticación. La
-consulta desde la API está disponible desde la parte 11 y la asignación por identificador
-en la parte 12. La eliminación de tareas es física conforme al alcance implementado. Si se
+`Task.responsibleId` referencia a `TeamMember`, el catálogo de integrantes sin
+autenticación. La consulta del catálogo está disponible desde la parte 11 y la
+asignación por identificador desde la parte 12. La eliminación de tareas es física. Si se
 incorporan recuperación, permisos o historial, será necesario modificar el modelo,
 la API, las pruebas y la documentación.
 
@@ -48,6 +47,11 @@ frontend/
       tasks.types.ts  Tipos y etiquetas de los estados
       hooks/useTasks.ts Estados, reintento y cancelación
       components/    Tarjetas, listado, formulario y confirmación de eliminación
+    features/team-members/
+      team-members.schema.ts Contrato del catálogo
+      team-members.api.ts Consulta HTTP de integrantes activos
+      useTeamMembers.ts Carga, error, reintento y cancelación del catálogo
+    lib/api.ts        Cliente JSON compartido y errores HTTP
     App.tsx           Listado, selección de acciones y mensajes de éxito
     main.tsx          Entrada de React
     styles.css        Estilos básicos
@@ -63,8 +67,8 @@ backend/
       task.routes.ts      Rutas GET, POST, PUT y DELETE
       task.controller.ts  Controladores: solicitudes y respuestas HTTP
       task.middleware.ts  Validación del identificador de la URL
-      task.service.ts     Campos editables y tareas inexistentes
-      task.repository.ts  Consultas y escritura con Prisma
+      task.service.ts     Campos editables, reglas de asignación y tareas inexistentes
+      task.repository.ts  Consultas, selección pública y escrituras transaccionales
       task.schema.ts      Validaciones Zod y tipo de entrada
     lib/prisma.ts     Cliente Prisma de la aplicación
     modules/team-members/
@@ -108,6 +112,13 @@ descripción y selecciona los campos; el repositorio concentra el acceso a datos
 La edición añade la validación del identificador y exige los cuatro campos; la eliminación
 valida el identificador y no necesita un formulario de datos en la API.
 Express 5 dirige los errores de las funciones asíncronas al middleware central.
+
+Para crear o editar, el repositorio abre una transacción, consulta el integrante y
+ejecuta la regla de asignación definida en el servicio antes de escribir. Al editar,
+consulta primero la asignación actual: una tarea inexistente devuelve 404 y una
+asignación inactiva solo puede conservarse en esa misma tarea. La respuesta selecciona
+los campos públicos de la tarea y del integrante. La clave foránea protege la
+existencia y las bajas físicas; el estado activo se valida dentro de la transacción.
 
 Prisma, su cliente y el adaptador SQLite están fijados en la misma versión estable 7.10.0.
 El repositorio incluye overrides acotados para `deepmerge-ts` y `mysql2`, dependencias
@@ -158,11 +169,11 @@ puedes usar una base temporal distinta y aplicar sus migraciones.
 Al crear, los textos empiezan vacíos y el estado es Pendiente. Al editar, se precargan
 los cuatro campos de la tarea seleccionada; una descripción nula se presenta como texto vacío.
 
-El formulario valida título y responsable obligatorios, incluso si contienen solo espacios,
-el estado seleccionado y los límites de 150, 100 y 2.000 caracteres respectivamente.
+El formulario valida título obligatorio, integrante seleccionado y estado. Rechaza
+títulos de espacios y limita título y descripción a 150 y 2.000 caracteres.
 Recorta los espacios iniciales y finales antes de comprobar las longitudes. Una descripción
-vacía se envía como `null`. Siempre se envían los cuatro campos editables; los identificadores
-y las fechas no se incluyen en el cuerpo de creación o edición.
+vacía se envía como `null`. Siempre se envían título, descripción, `responsibleId` y estado; el identificador
+de la tarea y las fechas no se incluyen en el cuerpo de creación o edición.
 
 Los mensajes se muestran junto a cada campo con etiquetas visibles y referencias accesibles.
 Los errores por campo de la API también se presentan en el formulario, junto al mensaje
@@ -187,7 +198,7 @@ Reintentar para consultar otra vez, sin repetir la escritura que ya finalizó.
 ### Comprobación manual del CRUD
 
 1. Inicia frontend y backend y pulsa **Nueva tarea**.
-2. Intenta crear con título y responsable vacíos, o solo con espacios, y comprueba los mensajes.
+2. Intenta crear con título vacío o de espacios y sin seleccionar responsable; comprueba los mensajes.
 3. Selecciona la opción vacía del estado y comprueba que también se rechaza.
 4. Completa los datos y pulsa **Crear tarea**; comprueba el éxito y la nueva tarjeta.
 5. Recarga la página para comprobar la persistencia.

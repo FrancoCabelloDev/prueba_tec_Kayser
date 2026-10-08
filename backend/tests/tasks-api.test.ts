@@ -6,6 +6,7 @@ import type { Express } from 'express';
 import request from 'supertest';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PrismaClient } from '../src/generated/prisma/client.js';
+import { Prisma } from '../src/generated/prisma/client.js';
 import type { taskRepository as TaskRepository } from '../src/modules/tasks/task.repository.js';
 import { openApiDocument } from '../src/config/openapi.js';
 import { expectDocumentedResponse } from './helpers/openapi.js';
@@ -14,7 +15,7 @@ const backendDirectory = fileURLToPath(new URL('../', import.meta.url));
 const testRoot = join(backendDirectory, '.test-data');
 const originalDatabaseUrl = process.env.DATABASE_URL;
 const frontendOrigin = 'http://127.0.0.1:5173';
-const validTask = { title: 'Revisar servidor', responsibleId: 1, status: 'PENDIENTE' };
+const validTask = { title: 'Revisar servidor', responsibleId: 1, status: 'PENDIENTE' as const };
 
 let temporaryDirectory: string;
 let prisma: PrismaClient;
@@ -581,6 +582,111 @@ const invalidTaskIds = [
 ];
 
 describe('Asignación a integrantes registrados', () => {
+  it.each(['post', 'put'] as const)(
+    'rechaza en %s una nueva asignación desactivada después de consultar el catálogo',
+    async (method) => {
+      const original = await existingTask();
+      const catalog = await request(app).get('/api/team-members').expect(200);
+      expect(catalog.body).toContainEqual({ id: 2, code: 'TI-002', name: 'Luis', isActive: true });
+      await prisma.teamMember.update({ where: { id: 2 }, data: { isActive: false } });
+      const response = await request(app)
+        [method](method === 'post' ? '/api/tasks' : `/api/tasks/${original.id}`)
+        .send(validUpdate)
+        .expect(400);
+      await expectDocumentedResponse(
+        response,
+        method,
+        method === 'post' ? '/tasks' : '/tasks/{id}',
+      );
+      expect(response.body.error).toMatchObject({
+        code: 'VALIDATION_ERROR',
+        fields: { responsibleId: ['Selecciona un integrante activo del equipo.'] },
+      });
+      expect(await prisma.task.findMany()).toEqual([original]);
+    },
+  );
+
+  it('no permite trasladar el responsable inactivo de otra tarea a una nueva asignación', async () => {
+    const historical = await existingTask();
+    const other = await prisma.task.create({ data: { ...validTask, responsibleId: 2 } });
+    await prisma.teamMember.update({ where: { id: 1 }, data: { isActive: false } });
+    const response = await request(app)
+      .put(`/api/tasks/${other.id}`)
+      .send({ ...validUpdate, responsibleId: 1 })
+      .expect(400);
+    await expectDocumentedResponse(response, 'put', '/tasks/{id}');
+    expect(response.body.error.fields.responsibleId).toEqual([
+      'Selecciona un integrante activo del equipo.',
+    ]);
+    expect(await prisma.task.findUnique({ where: { id: other.id } })).toEqual(other);
+    expect(await prisma.task.findUnique({ where: { id: historical.id } })).toEqual(historical);
+  });
+
+  it('asigna y reasigna homónimos por identificador sin mezclar sus tareas', async () => {
+    await prisma.teamMember.update({ where: { id: 2 }, data: { name: 'Ana' } });
+    const first = await request(app).post('/api/tasks').send(validTask).expect(201);
+    const second = await request(app)
+      .post('/api/tasks')
+      .send({ ...validTask, responsibleId: 2 })
+      .expect(201);
+    expect(first.body.responsible).toEqual({ id: 1, code: 'TI-001', name: 'Ana', isActive: true });
+    expect(second.body.responsible).toEqual({ id: 2, code: 'TI-002', name: 'Ana', isActive: true });
+    const untouched = await prisma.task.findUniqueOrThrow({ where: { id: second.body.id } });
+    const reassigned = await request(app)
+      .put(`/api/tasks/${first.body.id}`)
+      .send(validUpdate)
+      .expect(200);
+    await expectDocumentedResponse(reassigned, 'put', '/tasks/{id}');
+    expect(reassigned.body).toMatchObject({
+      responsibleId: 2,
+      responsible: second.body.responsible,
+    });
+    expect(await prisma.task.findUnique({ where: { id: second.body.id } })).toEqual(untouched);
+  });
+
+  it('elimina solo la tarea elegida y conserva al integrante y otra tarea del mismo responsable', async () => {
+    const removed = await existingTask();
+    const remaining = await prisma.task.create({
+      data: { ...validTask, title: 'Conservar tarea' },
+    });
+    const membersBefore = await prisma.teamMember.findMany({ orderBy: { id: 'asc' } });
+    await request(app).delete(`/api/tasks/${removed.id}`).expect(204);
+    expect(await prisma.task.findMany()).toEqual([remaining]);
+    expect(await prisma.teamMember.findMany({ orderBy: { id: 'asc' } })).toEqual(membersBefore);
+    const listed = await request(app).get('/api/tasks').expect(200);
+    await expectDocumentedResponse(listed, 'get', '/tasks');
+    expect(listed.body).toHaveLength(1);
+    expect(listed.body[0]).toMatchObject({ id: remaining.id, responsibleId: 1 });
+  });
+
+  it.each(['post', 'put'] as const)(
+    'traduce un fallo de referencia en %s a un error del selector sin exponer Prisma',
+    async (method) => {
+      const original = await existingTask();
+      vi.spyOn(repository, method === 'post' ? 'create' : 'update').mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError('Detalle privado de la clave foránea', {
+          code: 'P2003',
+          clientVersion: 'test',
+        }),
+      );
+      const response = await request(app)
+        [method](method === 'post' ? '/api/tasks' : `/api/tasks/${original.id}`)
+        .send(validUpdate)
+        .expect(400);
+      await expectDocumentedResponse(
+        response,
+        method,
+        method === 'post' ? '/tasks' : '/tasks/{id}',
+      );
+      expect(response.body.error).toMatchObject({
+        code: 'VALIDATION_ERROR',
+        fields: { responsibleId: ['El responsable seleccionado ya no está disponible.'] },
+      });
+      expect(response.text).not.toContain('Detalle privado');
+      expect(response.text).not.toContain('P2003');
+      expect(await prisma.task.findMany()).toEqual([original]);
+    },
+  );
   it.each(['post', 'put'] as const)(
     'rechaza un responsable inexistente o inactivo en %s sin cambiar tareas',
     async (method) => {

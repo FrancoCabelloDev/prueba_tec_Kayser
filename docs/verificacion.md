@@ -15,19 +15,23 @@ Las pruebas de React simulan respuestas HTTP para reproducir errores y solicitud
 
 ## Cobertura funcional
 
-| Área              | Comando                                       | Qué verifica                                                                                                                                                 |
-| ----------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| API HTTP          | `npm run test:api`                            | CRUD, campos obligatorios, espacios, longitudes, estados, identificadores, tareas inexistentes, errores, CORS y respuestas acordes con OpenAPI               |
-| Persistencia      | `npm run test:persistence`                    | Migraciones y seed repetibles, restricciones SQL, fechas, campos opcionales, títulos repetidos y lectura desde un proceso nuevo                              |
-| Integrantes       | `npm run test:members`                        | 38 casos: códigos únicos, homónimos, validación, CHECK, carga atómica y repetible; actualización desde el esquema anterior conservando tareas e índices      |
-| Inicio y reinicio | `npm run test:lifecycle`                      | Servidor Node real: crear, consultar, editar, reiniciar, comprobar cambios, eliminar y volver a reiniciar para verificar que la eliminación persiste         |
-| Documentación     | `npm run test:docs` y `npm run docs:validate` | Esquemas, ejemplos, referencias y estructura OpenAPI                                                                                                         |
-| Interfaz React    | `npm run test:frontend`                       | Carga, vacío, error, reintento, formulario obligatorio, longitudes, precarga, cancelación, conservación de datos, confirmación y bloqueo durante solicitudes |
+| Área              | Comando                                       | Qué verifica                                                                                                                                                            |
+| ----------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| API HTTP          | `npm run test:api`                            | CRUD, validación, CORS, OpenAPI, bajas posteriores a consultar el catálogo, homónimos, excepción de inactividad por tarea y eliminación sin efectos en otras filas      |
+| Persistencia      | `npm run test:persistence`                    | Migraciones y seed repetibles, restricciones SQL, fechas, campos opcionales, títulos repetidos y lectura desde un proceso nuevo                                         |
+| Integrantes       | `npm run test:members`                        | 38 casos: códigos únicos, homónimos, validación, CHECK, carga atómica y repetible; actualización desde el esquema anterior conservando tareas e índices                 |
+| Inicio y reinicio | `npm run test:lifecycle`                      | Servidor Node real: CRUD y reinicio con relaciones; actualización desde dos migraciones anteriores, tareas históricas, fechas y secuencia conservadas                   |
+| Documentación     | `npm run test:docs` y `npm run docs:validate` | Esquemas, ejemplos, referencias y estructura OpenAPI                                                                                                                    |
+| Interfaz React    | `npm run test:frontend`                       | Formularios, carga lenta, catálogo inválido/vacío, reintento, homónimos, respuestas tardías después del cierre y errores de asignación con conservación de datos y foco |
 
 La prueba de reinicio inicia `src/server.ts` mediante Node.js y tsx en un proceso separado,
 con un puerto libre y una base temporal migrada. Envía peticiones HTTP reales y reinicia
 el proceso sobre el mismo archivo SQLite. No necesita un `dist` previo. Esto complementa
 las pruebas con Supertest y comprueba la configuración y el arranque del servidor.
+La actualización crea su historial anterior con Prisma, conserva tareas de texto,
+aplica la migración de asignaciones y repite migración y seed antes de iniciar el backend.
+El catálogo activo excluye al integrante histórico inactivo, pero GET /tasks conserva
+su relación. Reiniciar mantiene los datos completos y el siguiente identificador correcto.
 
 ## Recorrido manual
 
@@ -170,3 +174,64 @@ El 8 de octubre de 2026 se verificó el avance en Windows con Node.js 24.21.0 y 
   añade migraciones ni cambia el contrato de tareas; el selector queda para la parte 12.
 
 Los jobs de GitHub Actions se revisarán después del commit y push manuales del candidato.
+
+## Comprobación de la parte 12
+
+El 8 de octubre de 2026, en Windows con Node.js 24.21.0 y npm 11.19.0:
+
+- `npm run check`: lint, formato, OpenAPI, tipos, compilación y **274 pruebas**
+  aprobadas (47 de frontend y 227 de backend).
+- Migración sobre SQLite vacío y previo, con homónimos, nombres sin equivalencia,
+  integrantes inactivos, códigos históricos ocupados y una secuencia con filas eliminadas.
+  Se comprobó la reversión de escrituras ante un nombre legado inválido.
+- Respaldo SQLite online en `.document_work/part12-respaldo-antes-de-migrar.db`,
+  excluido de Git, y prueba de la migración sobre una copia de la base habitual.
+- Migración aplicada a la base habitual: la tarea existente conservó identificador,
+  título, descripción, estado, fechas y la asignación a Franco Cabello; la secuencia
+  de tareas y los integrantes existentes se conservaron. La integridad y las claves
+  foráneas se comprobaron sin errores. Las tres migraciones quedaron al día.
+- Recorrido de React sobre la copia: creación asignada a Oscar Perez, edición con
+  precarga, reasignación a Franco Cabello y actualización del estado.
+- Swagger sobre la misma copia: POST con `responsibleId` devolvió `201` y el objeto
+  público del integrante. Las tareas de prueba se eliminaron después mediante HTTP,
+  conservando la tarea copiada del candidato y su catálogo.
+
+Se utilizaron los puertos 3001 y 5174 para el recorrido de prueba. No se crearon ni
+editaron tareas en la base habitual durante ese recorrido. CI se confirmará después
+del commit y push manuales. La parte 13 ampliará los escenarios de regresión y la
+parte 14 comprobará la entrega final desde una copia limpia.
+
+## Comprobación de la parte 13
+
+El 8 de octubre de 2026, en Windows con Node.js 24.21.0 y npm 11.19.0:
+
+- `npm run check`: lint, formato, OpenAPI, tipos y compilación correctos; **292
+  pruebas aprobadas** (57 de frontend y 235 de backend). Son 18 regresiones adicionales.
+- `npm run test:api`: 167 pruebas HTTP. Los casos nuevos cubren bajas posteriores
+  a consultar el catálogo al crear y editar, homónimos con asignaciones independientes,
+  inactividad limitada a la tarea actual, eliminación sin alterar otras filas y
+  traducción de errores de referencia sin exponer detalles internos.
+- `npm run test:lifecycle`: dos escenarios con procesos reales. La instalación
+  nueva conserva la respuesta completa de una tarea reasignada y el catálogo tras
+  reiniciar. La actualización aplica la migración publicada sobre una base con
+  dos migraciones anteriores y tareas de texto; mantiene identificadores, contenido,
+  fechas y relaciones activas e históricas después de repetir comandos y reiniciar.
+  Una secuencia anterior de 105 produce correctamente la siguiente tarea con id 106.
+- React verifica precarga lenta, catálogos con códigos o identificadores duplicados,
+  responsables históricos, reintento tras una baja, conservación de todos los campos,
+  foco y cancelación al cerrar. Una respuesta tardía de un formulario cerrado no
+  sustituye el catálogo de otro recién abierto. El cliente rechaza relaciones
+  incoherentes y admite consultar las relaciones históricas inactivas.
+- Recorrido real en React con `.document_work/part13-verificacion.db`, una base
+  separada y excluida de Git: se seleccionó Oscar Perez y se desactivó únicamente
+  en esa base después de cargar el formulario. El guardado mostró el error de
+  asignación, conservó título, descripción, responsable y estado, y enfocó el selector.
+  Elegir Franco Cabello permitió guardar. Después se eliminó la tarea de prueba y
+  se restauró el catálogo temporal. La evidencia local quedó en
+  `.document_work/part13-error-asignacion-verificado.png`, excluida de Git.
+
+El recorrido utilizó 3001 y 5174; los dos servidores temporales se detuvieron al
+terminar. Esta parte no modifica la base habitual ni añade migraciones o dependencias.
+Las pruebas forman parte de los comandos existentes y CI las ejecutará sin cambiar
+el workflow. El resultado remoto se confirmará después del commit y push manuales.
+La parte 14 sigue pendiente para consolidar las instrucciones y verificar la entrega limpia.

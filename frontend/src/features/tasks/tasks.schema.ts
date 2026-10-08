@@ -1,16 +1,20 @@
 import { z } from 'zod';
+import { teamMemberSchema } from '../team-members/team-members.schema';
 
 export const taskStatusSchema = z.enum(['PENDIENTE', 'EN_PROCESO', 'COMPLETADO']);
 
-export const taskSchema = z.object({
-  id: z.number().int().positive().max(2147483647),
-  title: z.string().trim().min(1).max(150),
-  description: z.string().max(2000).nullable(),
-  responsible: z.string().trim().min(1).max(100),
-  status: taskStatusSchema,
-  createdAt: z.iso.datetime(),
-  updatedAt: z.iso.datetime(),
-});
+export const taskSchema = z
+  .object({
+    id: z.number().int().positive().max(2147483647),
+    title: z.string().trim().min(1).max(150),
+    description: z.string().max(2000).nullable(),
+    responsibleId: z.number().int().positive().max(2147483647),
+    responsible: teamMemberSchema,
+    status: taskStatusSchema,
+    createdAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime(),
+  })
+  .refine((task) => task.responsibleId === task.responsible.id);
 
 export const taskListSchema = z.array(taskSchema);
 
@@ -25,11 +29,12 @@ export const taskFormSchema = z.object({
     .trim()
     .max(2000, 'La descripción no puede superar los 2.000 caracteres.')
     .transform((value) => value || null),
-  responsible: z
+  responsibleId: z
     .string()
-    .trim()
     .min(1, 'El responsable es obligatorio.')
-    .max(100, 'El responsable no puede superar los 100 caracteres.'),
+    .regex(/^[1-9]\d*$/, 'Selecciona un integrante válido.')
+    .transform(Number)
+    .pipe(z.number().int().positive().max(2147483647, 'Selecciona un integrante válido.')),
   status: z.enum(['PENDIENTE', 'EN_PROCESO', 'COMPLETADO'], {
     error: 'El estado es obligatorio y debe ser válido.',
   }),

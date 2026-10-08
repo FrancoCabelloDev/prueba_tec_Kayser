@@ -1,8 +1,12 @@
+import { listActiveTeamMembers } from '../src/features/team-members/team-members.api';
+vi.mock('../src/features/team-members/team-members.api', () => ({
+  listActiveTeamMembers: vi.fn(),
+}));
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../src/App';
-import { deferredResponse, jsonResponse, tasks } from './fixtures';
+import { deferredResponse, jsonResponse, tasks, members } from './fixtures';
 
 const fetchMock = vi.fn<typeof fetch>();
 const createdTask = {
@@ -10,10 +14,12 @@ const createdTask = {
   id: 4,
   title: 'Nueva tarea de prueba',
   description: null,
-  responsible: 'Elena Díaz',
+  responsibleId: 4,
+  responsible: members[3]!,
 };
 beforeEach(() => {
   fetchMock.mockReset();
+  vi.mocked(listActiveTeamMembers).mockReset().mockResolvedValue(members);
   vi.stubGlobal('fetch', fetchMock);
 });
 
@@ -21,12 +27,16 @@ async function openCreate(user: ReturnType<typeof userEvent.setup>) {
   render(<App />);
   await screen.findByRole('list');
   await user.click(screen.getByRole('button', { name: 'Nueva tarea' }));
+  await waitFor(() => expect(screen.getByLabelText('Responsable', { exact: true })).toBeEnabled());
   return within(screen.getByRole('dialog', { name: 'Nueva tarea' }));
 }
 
 async function fillCreate(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('Título', { exact: true }), createdTask.title);
-  await user.type(screen.getByLabelText('Responsable', { exact: true }), createdTask.responsible);
+  await user.selectOptions(
+    screen.getByLabelText('Responsable', { exact: true }),
+    String(createdTask.responsibleId),
+  );
 }
 
 describe('Creación y edición', () => {
@@ -49,7 +59,7 @@ describe('Creación y edición', () => {
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
       title: createdTask.title,
       description: null,
-      responsible: createdTask.responsible,
+      responsibleId: createdTask.responsibleId,
       status: 'PENDIENTE',
     });
     expect(fetchMock.mock.calls[2]?.[0]).toBe('http://127.0.0.1:3000/api/tasks');
@@ -61,7 +71,7 @@ describe('Creación y edición', () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(tasks));
     const dialog = await openCreate(user);
     await user.type(screen.getByLabelText('Título', { exact: true }), '   ');
-    await user.type(screen.getByLabelText('Responsable', { exact: true }), '   ');
+    await user.selectOptions(screen.getByLabelText('Responsable', { exact: true }), '');
     await user.selectOptions(screen.getByLabelText('Estado'), '');
     await user.click(dialog.getByRole('button', { name: 'Crear tarea' }));
     expect(await screen.findByText('El título es obligatorio.')).toBeInTheDocument();
@@ -77,7 +87,6 @@ describe('Creación y edición', () => {
 
   it.each([
     ['Título', 'x'.repeat(151), 'El título no puede superar los 150 caracteres.'],
-    ['Responsable', 'x'.repeat(101), 'El responsable no puede superar los 100 caracteres.'],
     [
       'Descripción (opcional)',
       'x'.repeat(2001),
@@ -107,9 +116,9 @@ describe('Creación y edición', () => {
       .mockResolvedValueOnce(jsonResponse([result, ...tasks]));
     await openCreate(user);
     await user.type(screen.getByLabelText('Título', { exact: true }), `  ${createdTask.title}  `);
-    await user.type(
+    await user.selectOptions(
       screen.getByLabelText('Responsable', { exact: true }),
-      ` ${createdTask.responsible} `,
+      String(createdTask.responsibleId),
     );
     await user.type(
       screen.getByLabelText('Descripción (opcional)'),
@@ -120,7 +129,7 @@ describe('Creación y edición', () => {
     await screen.findByText('La tarea se creó correctamente.');
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
       title: createdTask.title,
-      responsible: createdTask.responsible,
+      responsibleId: createdTask.responsibleId,
       description: result.description,
       status: 'EN_PROCESO',
     });
@@ -156,7 +165,7 @@ describe('Creación y edición', () => {
     );
     expect(screen.getByLabelText('Título', { exact: true })).toHaveValue(createdTask.title);
     expect(screen.getByLabelText('Responsable', { exact: true })).toHaveValue(
-      createdTask.responsible,
+      String(createdTask.responsibleId),
     );
     expect(screen.getByLabelText('Descripción (opcional)')).toHaveValue(
       'Texto que no debe perderse',
@@ -178,7 +187,7 @@ describe('Creación y edición', () => {
             message: 'Revisa los campos enviados.',
             fields: {
               title: ['Título rechazado por el servidor.'],
-              responsible: ['Responsable rechazado por el servidor.'],
+              responsibleId: ['Responsable rechazado por el servidor.'],
             },
           },
         },
@@ -227,7 +236,8 @@ describe('Creación y edición', () => {
       ...tasks[0]!,
       title: 'Alertas revisadas',
       description: null,
-      responsible: 'Equipo de soporte',
+      responsibleId: 2,
+      responsible: members[1]!,
       status: 'COMPLETADO',
     };
     fetchMock
@@ -241,15 +251,21 @@ describe('Creación y edición', () => {
     expect(screen.getByRole('dialog', { name: 'Editar tarea' })).toBeInTheDocument();
     expect(screen.getByLabelText('Título', { exact: true })).toHaveValue(tasks[0]!.title);
     expect(screen.getByLabelText('Descripción (opcional)')).toHaveValue(tasks[0]!.description);
+    await waitFor(() =>
+      expect(screen.getByLabelText('Responsable', { exact: true })).toBeEnabled(),
+    );
     expect(screen.getByLabelText('Responsable', { exact: true })).toHaveValue(
-      tasks[0]!.responsible,
+      String(tasks[0]!.responsibleId),
     );
     expect(screen.getByLabelText('Estado')).toHaveValue(tasks[0]!.status);
     await user.clear(screen.getByLabelText('Título', { exact: true }));
     await user.type(screen.getByLabelText('Título', { exact: true }), edited.title);
     await user.clear(screen.getByLabelText('Descripción (opcional)'));
-    await user.clear(screen.getByLabelText('Responsable', { exact: true }));
-    await user.type(screen.getByLabelText('Responsable', { exact: true }), edited.responsible);
+
+    await user.selectOptions(
+      screen.getByLabelText('Responsable', { exact: true }),
+      String(edited.responsibleId),
+    );
     await user.selectOptions(screen.getByLabelText('Estado'), 'COMPLETADO');
     await user.click(screen.getByRole('button', { name: 'Guardar cambios' }));
     expect(await screen.findByRole('heading', { name: edited.title })).toBeInTheDocument();
@@ -259,7 +275,7 @@ describe('Creación y edición', () => {
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
       title: edited.title,
       description: null,
-      responsible: edited.responsible,
+      responsibleId: edited.responsibleId,
       status: 'COMPLETADO',
     });
   });

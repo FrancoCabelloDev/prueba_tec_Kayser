@@ -28,8 +28,18 @@ la comparación de texto predeterminada de SQLite (BINARY). Devuelve exclusivame
 
 ```json
 [
-  { "id": 1, "code": "TI-001", "name": "Franco Cabello", "isActive": true },
-  { "id": 2, "code": "TI-002", "name": "Oscar Perez", "isActive": true }
+  {
+    "id": 1,
+    "code": "TI-001",
+    "name": "Franco Cabello",
+    "isActive": true
+  },
+  {
+    "id": 2,
+    "code": "TI-002",
+    "name": "Oscar Perez",
+    "isActive": true
+  }
 ]
 ```
 
@@ -48,24 +58,27 @@ Invoke-RestMethod -Uri 'http://127.0.0.1:3000/api/team-members' -Method Get
 En Swagger abre **Integrantes → GET /team-members → Try it out → Execute**.
 Si esperabas integrantes y aparece `[]`, comprueba el archivo SQLite configurado,
 las migraciones y la carga `npm run db:seed:members` según la [guía del catálogo](integrantes.md).
-Este avance mantiene el responsable de las tareas como texto libre; la relación
-por identificador y el selector se implementarán juntos en la parte 12.
+Desde la parte 12 las tareas se asignan por `responsibleId`, con un selector en React.
+Crear o reasignar exige un integrante activo; editar permite conservar al responsable
+inactivo actual. La API comprueba la asignación dentro de la transacción de escritura.
 
 ### Crear una tarea
 
-Solo se aceptan `title`, `description`, `responsible` y `status`:
+Solo se aceptan `title`, `description`, `responsibleId` y `status`:
 
 ```json
 {
   "title": "Revisar servidor de pruebas",
   "description": "Comprobar los servicios y registrar el resultado.",
-  "responsible": "Ana Pérez",
-  "status": "PENDIENTE"
+  "status": "PENDIENTE",
+  "responsibleId": 1
 }
 ```
 
 El backend recorta espacios al inicio y al final de los campos de texto antes de validar
-las longitudes. Rechaza título o responsable vacíos, incluso si contienen solo espacios.
+las longitudes. Rechaza títulos vacíos o de espacios. `responsibleId` debe ser un
+entero JSON entre 1 y 2147483647 que corresponda a un integrante activo. Los nombres
+libres, objetos y números enviados como texto se rechazan.
 `description` puede omitirse, ser `null` o estar vacía; en esos casos se guarda como `null`.
 El estado es obligatorio y acepta exactamente `PENDIENTE`, `EN_PROCESO` o `COMPLETADO`.
 Los valores de presentación, como `Pendiente`, no son valores válidos para la API.
@@ -80,22 +93,33 @@ Ejemplo de respuesta `201`:
   "id": 1,
   "title": "Revisar servidor de pruebas",
   "description": "Comprobar los servicios y registrar el resultado.",
-  "responsible": "Ana Pérez",
+  "responsible": {
+    "id": 1,
+    "code": "TI-001",
+    "name": "Franco Cabello",
+    "isActive": true
+  },
   "status": "PENDIENTE",
   "createdAt": "2026-10-08T12:00:00.000Z",
-  "updatedAt": "2026-10-08T12:00:00.000Z"
+  "updatedAt": "2026-10-08T12:00:00.000Z",
+  "responsibleId": 1
 }
 ```
 
-El identificador y las fechas del ejemplo son ilustrativos.
+El identificador y las fechas del ejemplo son ilustrativos. Consulta el catálogo para
+obtener un `responsibleId` real. La respuesta incluye el objeto público `responsible`,
+con el nombre, código y estado actual del integrante.
 
 Con el backend iniciado, puedes probarlo en PowerShell desde otra terminal:
 
 ```powershell
+$selectedMember = Invoke-RestMethod -Uri 'http://127.0.0.1:3000/api/team-members' -Method Get | Select-Object -First 1
+if ($null -eq $selectedMember) { throw 'Carga primero un integrante activo en el catálogo.' }
+
 $taskBody = @{
     title = 'Revisar servidor de pruebas'
     description = 'Comprobar los servicios y registrar el resultado.'
-    responsible = 'Ana Pérez'
+    responsibleId = $selectedMember.id
     status = 'PENDIENTE'
 } | ConvertTo-Json
 
@@ -111,7 +135,7 @@ Postman con el cuerpo JSON indicado o probar las operaciones desde Swagger UI.
 ### Editar una tarea
 
 `PUT /api/tasks/:id` recibe los **cuatro campos editables completos**: `title`,
-`description`, `responsible` y `status`. Aplica los mismos tipos, estados, longitudes
+`description`, `responsibleId` y `status`. Aplica los mismos tipos, estados, longitudes
 y recorte de espacios que la creación. Para quitar la descripción, envía `null` o texto vacío;
 omitirla es un error `400`. Las solicitudes parciales no están admitidas.
 
@@ -131,7 +155,7 @@ Para editar la tarea creada en el ejemplo anterior, usa la misma terminal de Pow
 $updatedTaskBody = @{
     title = 'Revisión del servidor finalizada'
     description = $null
-    responsible = 'Ana Pérez'
+    responsibleId = $selectedMember.id
     status = 'COMPLETADO'
 } | ConvertTo-Json
 
@@ -142,6 +166,9 @@ Invoke-RestMethod -Uri 'http://127.0.0.1:3000/api/tasks' -Method Get
 ```
 
 La respuesta `200` contiene la tarea completa, con el mismo formato de la creación.
+Conservar el responsable inactivo actual está permitido; cambiarlo exige uno activo.
+Los errores de asignación responden `400` con mensajes en `error.fields.responsibleId`.
+La clave foránea impide eliminar un integrante que todavía tenga tareas.
 
 ### Eliminar una tarea
 
@@ -223,7 +250,8 @@ sin utilizar una CDN ni enviar la especificación a un validador externo.
 
 ### Probar el CRUD desde Swagger
 
-1. Abre **POST /tasks**, pulsa **Try it out**, revisa el JSON de ejemplo y pulsa **Execute**.
+1. Consulta **GET /team-members** y utiliza uno de sus identificadores como `responsibleId`.
+   Abre **POST /tasks**, pulsa **Try it out**, revisa el JSON de ejemplo y pulsa **Execute**.
    Debe responder `201`. Conserva el `id` que aparece en la respuesta.
 2. Ejecuta **GET /tasks**. Debe responder `200` y mostrar la tarea creada.
 3. Abre **PUT /tasks/{id}**, pulsa **Try it out**, introduce ese identificador y envía los

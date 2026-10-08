@@ -22,6 +22,7 @@ Configura primero los `.env` siguiendo el README y ejecuta desde la raíz:
 ```bash
 npm run db:generate
 npm run db:migrate
+npm run db:seed:members
 npm run db:status
 ```
 
@@ -37,7 +38,8 @@ npm run db:seed
 
 El seed utiliza una transacción e inserta tres tareas, una por cada estado, solo si la
 tabla está vacía. Si ya hay tareas, conserva la información. Volver a ejecutarlo no
-duplica ejemplos. No se entrega `dev.db` en Git: cada instalación la crea con estos comandos.
+duplica ejemplos. Desde la parte 12 exige que TI-001 y TI-002 estén cargados y activos;
+ejecuta antes `npm run db:seed:members`. No se entrega `dev.db` en Git: cada instalación la crea con estos comandos.
 
 Desde la parte 10 también existe `TeamMember`, el catálogo de integrantes. Cárgalo
 después de migrar con `npm run db:seed:members`: registra a Franco Cabello y Oscar
@@ -70,9 +72,11 @@ el archivo de esa copia. SQLite no requiere host, puerto, usuario ni contraseña
 Puedes ejecutar esta consulta de lectura en la consola SQL:
 
 ```sql
-SELECT id, title, description, responsible, status, createdAt, updatedAt
-FROM "Task"
-ORDER BY createdAt DESC, id DESC;
+SELECT t.id, t.title, t.description, t.responsibleId, m.code, m.name, m.isActive,
+       t.status, t.createdAt, t.updatedAt
+FROM "Task" t
+JOIN "TeamMember" m ON m.id = t.responsibleId
+ORDER BY t.createdAt DESC, t.id DESC;
 ```
 
 Para ver los integrantes, actualiza la fuente de datos y abre **TeamMember** o ejecuta:
@@ -83,8 +87,9 @@ FROM "TeamMember"
 ORDER BY code;
 ```
 
-SQLite muestra `isActive` como `1` (activo) o `0` (inactivo). En esta fase `Task`
-todavía conserva su responsable de texto; la relación se añadirá en la parte 12.
+SQLite muestra `isActive` como `1` (activo) o `0` (inactivo). Desde la parte 12 `Task`
+referencia al integrante mediante `responsibleId`. Actualiza la fuente después de
+migrar y consulta el nombre mediante el JOIN anterior.
 
 La tabla se llama `Task` porque el modelo Prisma representa una tarea en singular.
 Es una convención válida; contiene todas las filas de tareas. `_prisma_migrations`
@@ -119,16 +124,16 @@ parte de la instalación. Las pruebas automatizadas utilizan otras bases tempora
 
 ## Modelo y restricciones
 
-`Task` contiene `id`, `title`, `description`, `responsible`, `status`, `createdAt` y `updatedAt`.
+`Task` contiene `id`, `title`, `description`, `responsibleId`, `status`, `createdAt` y `updatedAt`.
 El identificador es autoincremental; Prisma genera las fechas y actualiza `updatedAt`
 cuando una tarea se modifica mediante el cliente.
 
-| Campo         | Restricción                                            |
-| ------------- | ------------------------------------------------------ |
-| `title`       | Obligatorio; contenido no vacío; máximo 150 caracteres |
-| `description` | Opcional; máximo 2.000 caracteres                      |
-| `responsible` | Obligatorio; contenido no vacío; máximo 100 caracteres |
-| `status`      | Obligatorio: `PENDIENTE`, `EN_PROCESO` o `COMPLETADO`  |
+| Campo           | Restricción                                                       |
+| --------------- | ----------------------------------------------------------------- |
+| `title`         | Obligatorio; contenido no vacío; máximo 150 caracteres            |
+| `description`   | Opcional; máximo 2.000 caracteres                                 |
+| `responsibleId` | Obligatorio; entero positivo; clave foránea hacia `TeamMember.id` |
+| `status`        | Obligatorio: `PENDIENTE`, `EN_PROCESO` o `COMPLETADO`             |
 
 Se permiten títulos repetidos. El estado no tiene valor por defecto en la base de datos;
 debe proporcionarse al crear una tarea. El formulario de React selecciona Pendiente inicialmente.
@@ -143,6 +148,9 @@ Los identificadores y las fechas son campos protegidos: no pueden enviarse en es
 
 La migración `20261008214754_crear_integrantes` añade únicamente `TeamMember`, sus
 restricciones y sus índices. Mantiene las filas, fechas, índices y secuencia de `Task`.
+La migración `20261008221600_asignar_integrantes` sustituye el texto por la clave
+foránea, conserva las tareas y añade el índice de `responsibleId`.
+[Procedimiento de actualización y responsables históricos](asignaciones.md).
 El código del integrante es único; su nombre admite homónimos. Hay un índice sobre
 `isActive`, `name` y `code`. Las reglas completas están en la [guía del catálogo](integrantes.md).
 

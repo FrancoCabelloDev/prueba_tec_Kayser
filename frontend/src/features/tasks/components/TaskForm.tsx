@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Modal } from '../../../components/Modal';
 import { TaskApiError } from '../tasks.api';
+import { useTeamMembers } from '../../team-members/useTeamMembers';
 import { taskFormSchema } from '../tasks.schema';
 import { taskStatusLabels, type Task, type TaskFormValues, type TaskInput } from '../tasks.types';
 
@@ -15,6 +16,15 @@ type TaskFormProps = {
 
 export function TaskForm({ task, onSave, onCancel, fallbackFocusRef }: TaskFormProps) {
   const id = useId();
+  const catalog = useTeamMembers();
+  const historicalMember =
+    catalog.status === 'ready' &&
+    task &&
+    !catalog.members.some((member) => member.id === task.responsibleId)
+      ? task.responsible
+      : null;
+  const canSave =
+    catalog.status === 'ready' && (catalog.members.length > 0 || Boolean(historicalMember));
   const savingRef = useRef(false);
   const serverErrorFocusRef = useRef<keyof TaskFormValues | null>(null);
   const {
@@ -23,16 +33,23 @@ export function TaskForm({ task, onSave, onCancel, fallbackFocusRef }: TaskFormP
     setError,
     clearErrors,
     setFocus,
+    setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<TaskFormValues, unknown, TaskInput>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: {
       title: task?.title ?? '',
       description: task?.description ?? '',
-      responsible: task?.responsible ?? '',
+      responsibleId: task ? String(task.responsibleId) : '',
       status: task?.status ?? 'PENDIENTE',
     },
   });
+
+  useEffect(() => {
+    // The options arrive after the select mounts; restore the stored form value then.
+    if (catalog.status === 'ready') setValue('responsibleId', getValues('responsibleId'));
+  }, [catalog.status, getValues, setValue]);
 
   useEffect(() => {
     // Los campos deben estar habilitados antes de enfocar un error recibido de la API.
@@ -43,7 +60,18 @@ export function TaskForm({ task, onSave, onCancel, fallbackFocusRef }: TaskFormP
   }, [isSubmitting, setFocus]);
 
   async function submit(input: TaskInput) {
-    if (savingRef.current) return;
+    if (savingRef.current || !canSave) return;
+    const selected =
+      catalog.members.some((member) => member.id === input.responsibleId) ||
+      (task && input.responsibleId === task.responsibleId);
+    if (!selected) {
+      setError(
+        'responsibleId',
+        { message: 'Selecciona un integrante disponible.' },
+        { shouldFocus: true },
+      );
+      return;
+    }
     savingRef.current = true;
     clearErrors('root');
     try {
@@ -53,7 +81,7 @@ export function TaskForm({ task, onSave, onCancel, fallbackFocusRef }: TaskFormP
         message: error instanceof Error ? error.message : 'No pudimos guardar la tarea.',
       });
       if (error instanceof TaskApiError) {
-        const fields = ['title', 'description', 'responsible', 'status'] as const;
+        const fields = ['title', 'description', 'responsibleId', 'status'] as const;
         let firstField: (typeof fields)[number] | undefined;
         for (const field of fields) {
           const message = error.fields[field]?.[0];
@@ -118,19 +146,50 @@ export function TaskForm({ task, onSave, onCancel, fallbackFocusRef }: TaskFormP
           </div>
           <div className="form-field">
             <label htmlFor={`${id}-responsible`}>Responsable</label>
-            <input
+            <select
               id={`${id}-responsible`}
-              {...register('responsible')}
+              {...register('responsibleId')}
               required
-              aria-invalid={Boolean(errors.responsible)}
+              disabled={catalog.status !== 'ready'}
+              aria-invalid={Boolean(errors.responsibleId)}
               aria-describedby={`${id}-responsible-hint ${id}-responsible-error`}
-            />
+            >
+              <option value="">Selecciona un integrante</option>
+              {historicalMember && (
+                <option value={historicalMember.id}>
+                  {historicalMember.name} · {historicalMember.code} (inactivo; conservar asignación)
+                </option>
+              )}
+              {catalog.members.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name} · {member.code}
+                </option>
+              ))}
+            </select>
             <p className="field-hint" id={`${id}-responsible-hint`}>
-              Máximo 100 caracteres.
+              Selecciona un integrante activo del equipo. Puedes conservar al responsable inactivo
+              actual al editar.
             </p>
             <p className="field-error" id={`${id}-responsible-error`}>
-              {errors.responsible?.message}
+              {errors.responsibleId?.message}
             </p>
+            {catalog.status === 'loading' && <p role="status">Cargando integrantes…</p>}
+            {catalog.status === 'error' && (
+              <div role="alert">
+                <p>{catalog.message}</p>
+                <button type="button" className="button button-secondary" onClick={catalog.retry}>
+                  Reintentar integrantes
+                </button>
+              </div>
+            )}
+            {catalog.status === 'ready' && catalog.members.length === 0 && (
+              <p role="status">
+                No hay integrantes activos disponibles.
+                {historicalMember
+                  ? ' Puedes conservar al responsable actual.'
+                  : ' No se puede crear una tarea hasta que haya integrantes activos.'}
+              </p>
+            )}
           </div>
           <div className="form-field">
             <label htmlFor={`${id}-status`}>Estado</label>
@@ -172,7 +231,11 @@ export function TaskForm({ task, onSave, onCancel, fallbackFocusRef }: TaskFormP
           >
             Cancelar
           </button>
-          <button type="submit" className="button button-primary" disabled={isSubmitting}>
+          <button
+            type="submit"
+            className="button button-primary"
+            disabled={isSubmitting || !canSave}
+          >
             {isSubmitting ? 'Guardando…' : task ? 'Guardar cambios' : 'Crear tarea'}
           </button>
         </div>

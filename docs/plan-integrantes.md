@@ -1,9 +1,8 @@
 # Plan de implementación: integrantes predefinidos del equipo
 
 Este documento amplía las partes 1 a 9 ya implementadas. La parte 10 incorpora el
-catálogo inicial y la parte 11 añade su consulta HTTP; las partes 12 a 14 describen
-trabajo pendiente. La aplicación
-actual todavía guarda `Task.responsible` como texto libre.
+catálogo inicial y la parte 11 añade su consulta HTTP. La parte 12 conecta la relación
+en SQLite, la API y React; las partes 13 y 14 describen trabajo pendiente.
 Los commits y push de los nuevos avances serán ejecutados manualmente por el candidato.
 
 ## Objetivo y alcance
@@ -145,6 +144,9 @@ Momento del push: cuando el catálogo pueda consultarse correctamente. Confirmar
 
 ## Parte 12 — Migrar las asignaciones y conectar el selector de React
 
+Implementada: relación con clave foránea, migración transaccional, reglas de asignación,
+selector React, contrato OpenAPI y adaptación de las pruebas. [Uso y actualización](asignaciones.md).
+
 Este avance incluirá base de datos, backend, frontend, OpenAPI y las pruebas afectadas
 en el mismo commit. Cambia el contrato de las tareas; todas sus capas deben actualizarse
 juntas para que la aplicación publicada siga funcionando.
@@ -211,8 +213,8 @@ Confirmar CI en verde para ese commit.
 
 ## Parte 13 — Consolidar las pruebas de la regla de negocio
 
-Además de adaptar las pruebas existentes en los avances anteriores, se comprobarán
-estos escenarios de regresión:
+Implementada el 8 de octubre de 2026. Además de las pruebas existentes de los avances
+anteriores, se añadieron regresiones para cubrir estos escenarios:
 
 | Escenario                                                             | Resultado esperado                                                |
 | --------------------------------------------------------------------- | ----------------------------------------------------------------- |
@@ -229,9 +231,18 @@ estos escenarios de regresión:
 | Ejecutar el seed varias veces                                         | No duplica, reactiva ni sobrescribe integrantes                   |
 | Dos integrantes con el mismo nombre                                   | Identidades y asignaciones independientes                         |
 
-Actualizar la prueba de reinicio real para consultar el catálogo, asignar una tarea y
-comprobar su relación tras reiniciar. Las nuevas pruebas usarán bases temporales y
-estarán incluidas en `npm test` y `npm run check`, de modo que CI las ejecute automáticamente.
+La prueba de reinicio real consulta el catálogo, asigna y reasigna una tarea y
+compara la respuesta completa, incluida su relación y fechas, tras reiniciar.
+Otro escenario crea una base con las dos migraciones anteriores, carga tareas con
+responsables de texto y aplica la nueva migración mediante Prisma. Comprueba desde
+HTTP las relaciones activas e históricas después del reinicio y la conservación de
+la secuencia de identificadores. Las pruebas usan bases temporales y están incluidas
+en `npm test` y `npm run check`, de modo que CI las ejecuta automáticamente.
+
+React cubre también la precarga lenta, la cancelación real al cerrar y reabrir, el
+rechazo de catálogos con identidades duplicadas y el reintento tras una baja con los
+datos conservados y el foco en el selector. La [guía de verificación](verificacion.md)
+registra los resultados y el recorrido sobre una base separada.
 
 Commit manual:
 

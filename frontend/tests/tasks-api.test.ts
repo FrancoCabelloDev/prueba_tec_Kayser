@@ -18,7 +18,7 @@ describe('Cliente de escritura de tareas', () => {
   const input = {
     title: 'Revisar alertas del servidor',
     description: null,
-    responsible: 'Ana Pérez',
+    responsibleId: 1,
     status: 'PENDIENTE' as const,
   };
 
@@ -121,6 +121,11 @@ describe('Cliente de consulta de tareas', () => {
     ['un identificador inválido', [{ ...tasks[0], id: 0 }]],
     ['un campo obligatorio ausente', [{ id: 1, title: 'Incompleta' }]],
     ['una fecha inválida', [{ ...tasks[0], createdAt: 'ayer' }]],
+    ['una relación cuyo identificador no coincide', [{ ...tasks[0], responsibleId: 2 }]],
+    [
+      'un integrante sin su código',
+      [{ ...tasks[0], responsible: { id: 1, name: 'Ana', isActive: true } }],
+    ],
   ])('rechaza %s', async (_case, body) => {
     fetchMock.mockResolvedValueOnce(jsonResponse(body));
     await expect(listTasks(new AbortController().signal)).rejects.toThrow(
@@ -134,5 +139,11 @@ describe('Cliente de consulta de tareas', () => {
     const error = new DOMException('Solicitud cancelada', 'AbortError');
     fetchMock.mockRejectedValueOnce(error);
     await expect(listTasks(controller.signal)).rejects.toBe(error);
+  });
+
+  it('acepta la relación con un responsable inactivo para consultar tareas históricas', async () => {
+    const historical = { ...tasks[0]!, responsible: { ...tasks[0]!.responsible, isActive: false } };
+    fetchMock.mockResolvedValueOnce(jsonResponse([historical]));
+    await expect(listTasks(new AbortController().signal)).resolves.toEqual([historical]);
   });
 });

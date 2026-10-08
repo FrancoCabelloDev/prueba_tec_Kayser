@@ -1,11 +1,19 @@
 import type { Task } from '../src/features/tasks/tasks.types';
 
+export const members = [
+  { id: 1, code: 'TI-001', name: 'Ana Pérez', isActive: true },
+  { id: 2, code: 'TI-002', name: 'Luis Torres', isActive: true },
+  { id: 3, code: 'TI-003', name: 'María López', isActive: true },
+  { id: 4, code: 'TI-004', name: 'Elena Díaz', isActive: true },
+];
+
 export const tasks: Task[] = [
   {
     id: 3,
     title: 'Revisar alertas del servidor',
     description: 'Comprobar los servicios.\nRegistrar el resultado.',
-    responsible: 'Ana Pérez',
+    responsibleId: 1,
+    responsible: members[0]!,
     status: 'PENDIENTE',
     createdAt: '2026-10-08T12:00:00.000Z',
     updatedAt: '2026-10-08T12:00:00.000Z',
@@ -14,7 +22,8 @@ export const tasks: Task[] = [
     id: 2,
     title: 'Actualizar equipos',
     description: null,
-    responsible: 'Luis Torres',
+    responsibleId: 2,
+    responsible: members[1]!,
     status: 'EN_PROCESO',
     createdAt: '2026-10-08T11:00:00.000Z',
     updatedAt: '2026-10-08T11:00:00.000Z',
@@ -23,7 +32,8 @@ export const tasks: Task[] = [
     id: 1,
     title: 'Verificar respaldo',
     description: 'Respaldo verificado.',
-    responsible: 'María López',
+    responsibleId: 3,
+    responsible: members[2]!,
     status: 'COMPLETADO',
     createdAt: '2026-10-08T10:00:00.000Z',
     updatedAt: '2026-10-08T10:00:00.000Z',

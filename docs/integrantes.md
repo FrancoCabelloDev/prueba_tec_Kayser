@@ -1,4 +1,4 @@
-# Catálogo de integrantes — Partes 10 y 11
+# Catálogo de integrantes — Partes 10 a 12
 
 [Volver al README](../README.md). [Plan completo de la ampliación](plan-integrantes.md).
 
@@ -16,8 +16,9 @@ no deben suponerse valores fijos. Los integrantes no son cuentas de acceso.
 
 `TeamMember` contiene `id`, `code`, `name`, `isActive`, `createdAt` y `updatedAt`.
 Una migración nueva crea la tabla sin modificar `Task`. Desde la parte 11 el catálogo
-activo se consulta mediante HTTP y Swagger. El formulario sigue usando un responsable
-de texto libre; la parte 12 conectará las asignaciones y React.
+activo se consulta mediante HTTP y Swagger. El formulario permite elegir un responsable
+mediante un selector desde la parte 12, enviando `responsibleId` y consultando el
+nombre del integrante en las respuestas. [Asignaciones y migración](asignaciones.md).
 
 | Campo      | Regla                                                                                  |
 | ---------- | -------------------------------------------------------------------------------------- |
@@ -50,8 +51,10 @@ nombres, estados y fechas de los existentes. No reactiva personas inactivas, no
 elimina otras personas ni modifica tareas. Toda la carga utiliza una transacción:
 si una inserción falla, no quedan altas parciales.
 
-`npm run db:seed` conserva su función anterior: cargar tres tareas de demostración
-solo cuando `Task` está vacía. Ambos comandos son independientes en esta fase.
+`npm run db:seed` carga tres tareas de demostración solo cuando `Task` está vacía.
+Desde la parte 12 esas tareas referencian TI-001 y TI-002 por sus códigos; ambos
+deben existir y estar activos. Ejecuta primero `db:seed:members`. Cargar integrantes
+no crea tareas y repetir cualquiera de los comandos conserva datos existentes.
 
 ## Archivos y mantenimiento
 
@@ -136,8 +139,9 @@ npm run test:members:api
 npm run check
 ```
 
-Esta parte no añade migraciones ni cambia el seed. Si vienes de la parte 10 con la
-base preparada, inicia el backend actualizado para consultar el catálogo. Si utilizas
+La parte 11 no añadió migraciones ni cambió el seed; la parte 12 incorpora una
+nueva migración y la relación con tareas. Consulta la [guía de actualización](asignaciones.md).
+Si utilizas
 la compilación, ejecuta antes `npm run build` y reinicia el servidor compilado.
 
 Publica manualmente este avance después de verificarlo:

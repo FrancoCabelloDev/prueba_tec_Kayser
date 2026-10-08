@@ -34,7 +34,7 @@ describe('Consulta de tareas', () => {
     const cards = within(list).getAllByRole('listitem');
     expect(cards).toHaveLength(3);
     expect(within(cards[0]!).getByRole('heading')).toHaveTextContent(tasks[0]!.title);
-    expect(within(cards[0]!).getByText('Ana Pérez')).toBeInTheDocument();
+    expect(within(cards[0]!).getByText('Ana Pérez · TI-001')).toBeInTheDocument();
     expect(within(cards[0]!).getByText(/Comprobar los servicios/).textContent).toBe(
       tasks[0]!.description,
     );

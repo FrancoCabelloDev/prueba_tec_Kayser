@@ -16,7 +16,10 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
       </p>
       <dl className="task-responsible">
         <dt>Responsable</dt>
-        <dd>{task.responsible}</dd>
+        <dd>
+          {task.responsible.name} · {task.responsible.code}
+          {!task.responsible.isActive && ' (inactivo)'}
+        </dd>
       </dl>
       <div className="task-actions">
         <button

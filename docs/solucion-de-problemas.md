@@ -83,7 +83,7 @@ Los puertos alternativos también deben estar libres. `npm run dev` utiliza el p
    **Actualizar**. Una vista previa compilada necesita volver a compilar si cambia `VITE_API_URL`.
 
 Si la API devuelve `400`, revisa los mensajes del formulario o la respuesta de Swagger.
-PUT necesita `title`, `description`, `responsible` y `status`; una descripción vacía
+PUT necesita `title`, `description`, `responsibleId` y `status`; una descripción vacía
 puede enviarse como `null`. Los estados de la API son `PENDIENTE`, `EN_PROCESO` y `COMPLETADO`.
 
 Para comprobar la compilación en el puerto 4173, usa ese origen en `FRONTEND_ORIGIN`;
