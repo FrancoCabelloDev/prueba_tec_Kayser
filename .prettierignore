@@ -4,3 +4,5 @@ coverage/
 package-lock.json
 .document_work/
 entregables/
+backend/src/generated/
+.test-data/

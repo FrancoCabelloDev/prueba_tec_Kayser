@@ -20,9 +20,23 @@
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm run lint && npm run format:check && npm run build",
+    "check": "npm run lint && npm run format:check && npm run build && npm run test:persistence",
     "start:backend": "npm run start --workspace backend",
-    "preview:frontend": "npm run preview --workspace frontend"
+    "preview:frontend": "npm run preview --workspace frontend",
+    "db:generate": "npm run db:generate --workspace backend",
+    "db:migrate": "npm run db:migrate --workspace backend",
+    "db:migrate:dev": "npm run db:migrate:dev --workspace backend --",
+    "db:status": "npm run db:status --workspace backend",
+    "db:seed": "npm run db:seed --workspace backend",
+    "test:persistence": "npm run test:persistence --workspace backend"
+  },
+  "overrides": {
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.2"
+    },
+    "prisma": {
+      "mysql2": "3.24.5"
+    }
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
