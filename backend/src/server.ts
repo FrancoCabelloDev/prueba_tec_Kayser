@@ -1,4 +1,4 @@
-import { app } from './app.js';
+import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { prisma } from './lib/prisma.js';
 
@@ -15,6 +15,7 @@ try {
   process.exit(1);
 }
 
+const app = createApp(env.FRONTEND_ORIGIN);
 const server = app.listen(env.PORT, '127.0.0.1', () => {
   console.info(`API disponible en http://127.0.0.1:${env.PORT}`);
 });

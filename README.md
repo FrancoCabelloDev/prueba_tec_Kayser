@@ -6,14 +6,16 @@ En Proceso o Completado.
 
 ## Avance actual
 
-Las partes 1 y 2 del plan están implementadas: frontend y backend con TypeScript,
-npm workspaces, ESLint, Prettier y persistencia de tareas con Prisma y SQLite.
-El frontend presenta la pantalla inicial. El backend verifica la conexión y las tablas
-al arrancar y ofrece un endpoint de salud.
+Las partes 1, 2 y 3 del plan están implementadas: frontend y backend con TypeScript,
+npm workspaces, ESLint, Prettier, persistencia con Prisma y SQLite y una API para
+listar y crear tareas. El frontend presenta la pantalla inicial. El backend verifica
+la conexión y las tablas al arrancar y ofrece un endpoint de salud.
 
-La base incluye una migración versionada, restricciones de datos, un seed opcional y
-pruebas de persistencia. Los endpoints del CRUD, Swagger y GitHub Actions se agregarán
-en los siguientes avances. La pantalla inicial todavía no consulta ni administra tareas.
+La API incluye validaciones con Zod, CORS para el origen del frontend, manejo centralizado
+de errores y pruebas de integración sobre una base temporal. La base incluye una
+migración versionada, restricciones de datos, un seed opcional y pruebas de persistencia.
+La edición, la eliminación, Swagger y GitHub Actions se agregarán en los siguientes avances.
+La pantalla inicial todavía no consulta ni administra tareas.
 
 ## Requisitos
 
@@ -59,7 +61,7 @@ Si los archivos `.env` ya existen, revisa sus valores en lugar de sobrescribirlo
 | `frontend/.env` | `VITE_API_URL`    | `http://127.0.0.1:3000/api` | URL pública de la API                                           |
 | `backend/.env`  | `PORT`            | `3000`                      | Puerto de la API, entre 1 y 65535                               |
 | `backend/.env`  | `NODE_ENV`        | `development`               | `development`, `test` o `production`; por defecto `development` |
-| `backend/.env`  | `FRONTEND_ORIGIN` | `http://127.0.0.1:5173`     | Origen reservado para configurar CORS en la parte 3             |
+| `backend/.env`  | `FRONTEND_ORIGIN` | `http://127.0.0.1:5173`     | Origen del frontend permitido por CORS                          |
 | `backend/.env`  | `DATABASE_URL`    | `file:./prisma/dev.db`      | Archivo SQLite relativo al directorio backend                   |
 
 `VITE_API_URL`, `PORT`, `FRONTEND_ORIGIN` y `DATABASE_URL` son obligatorias. La configuración rechaza
@@ -138,8 +140,8 @@ al formulario en su etapa correspondiente.
 SQLite guarda los estados como texto. La migración agrega un `CHECK` para impedir
 estados inválidos incluso mediante SQL directo, además de restricciones de campos
 obligatorios y longitud. El índice de `createdAt` e `id` permite ordenar las tareas de
-forma estable. Las validaciones y el control de campos editables en HTTP se incorporarán
-en las partes 3 y 4.
+forma estable. La API valida los campos al crear tareas y rechaza propiedades adicionales.
+El control de los campos de edición se incorporará en la parte 4.
 
 ### Cambios futuros en el esquema
 
@@ -177,23 +179,138 @@ También puedes iniciarlos en terminales separadas con `npm run dev:frontend` y
 
 Vite utiliza el puerto 5173 y falla si está ocupado, para conservar el origen documentado.
 Si cambias el puerto del backend, actualiza también `VITE_API_URL` y reinicia el frontend.
+Si cambias el origen del frontend, actualiza `FRONTEND_ORIGIN` y reinicia el backend.
+`localhost` y `127.0.0.1` son orígenes diferentes: utiliza las URLs documentadas de forma consistente.
+
+## API disponible en la parte 3
+
+URL base de ejemplo: `http://127.0.0.1:3000/api`. Las solicitudes de creación deben
+enviar `Content-Type: application/json`. No se requiere autenticación.
+
+| Método | Ruta          | Resultado                                                   |
+| ------ | ------------- | ----------------------------------------------------------- |
+| GET    | `/api/health` | `200` con `{ "status": "ok" }`                              |
+| GET    | `/api/tasks`  | `200` con un arreglo de tareas; `[]` si la tabla está vacía |
+| POST   | `/api/tasks`  | `201` con la tarea creada y persistida                      |
+
+El listado devuelve todas las tareas, ordenadas por `createdAt` descendente y por `id`
+descendente cuando las fechas coinciden. Las fechas se serializan como cadenas ISO 8601.
+
+### Crear una tarea
+
+Solo se aceptan `title`, `description`, `responsible` y `status`:
+
+```json
+{
+  "title": "Revisar servidor de pruebas",
+  "description": "Comprobar los servicios y registrar el resultado.",
+  "responsible": "Ana Pérez",
+  "status": "PENDIENTE"
+}
+```
+
+El backend recorta espacios al inicio y al final de los campos de texto antes de validar
+las longitudes. Rechaza título o responsable vacíos, incluso si contienen solo espacios.
+`description` puede omitirse, ser `null` o estar vacía; en esos casos se guarda como `null`.
+El estado es obligatorio y acepta exactamente `PENDIENTE`, `EN_PROCESO` o `COMPLETADO`.
+Los valores de presentación, como `Pendiente`, no son valores válidos para la API.
+
+`id`, `createdAt` y `updatedAt` los genera el servidor. Si se envían estos campos o
+cualquier propiedad adicional, la API responde `400` sin guardar la tarea.
+
+Ejemplo de respuesta `201`:
+
+```json
+{
+  "id": 1,
+  "title": "Revisar servidor de pruebas",
+  "description": "Comprobar los servicios y registrar el resultado.",
+  "responsible": "Ana Pérez",
+  "status": "PENDIENTE",
+  "createdAt": "2026-10-08T12:00:00.000Z",
+  "updatedAt": "2026-10-08T12:00:00.000Z"
+}
+```
+
+El identificador y las fechas del ejemplo son ilustrativos.
+
+Con el backend iniciado, puedes probarlo en PowerShell desde otra terminal:
+
+```powershell
+$taskBody = @{
+    title = 'Revisar servidor de pruebas'
+    description = 'Comprobar los servicios y registrar el resultado.'
+    responsible = 'Ana Pérez'
+    status = 'PENDIENTE'
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri 'http://127.0.0.1:3000/api/tasks' -Method Post `
+    -ContentType 'application/json; charset=utf-8' -Body ([System.Text.Encoding]::UTF8.GetBytes($taskBody))
+
+Invoke-RestMethod -Uri 'http://127.0.0.1:3000/api/tasks' -Method Get
+```
+
+La solicitud POST del ejemplo agrega una tarea a tu base local. También puedes utilizar
+Postman con el cuerpo JSON indicado. Swagger se incorporará en la parte 5.
+
+### Respuestas de error
+
+Todos los errores usan un objeto `error` con `code` y `message`. Las validaciones agregan
+`fields`, que contiene arreglos de mensajes por campo; `body` identifica un problema del
+objeto completo o de propiedades adicionales. Los mensajes se devuelven en español.
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Revisa los campos enviados.",
+    "fields": {
+      "title": ["El título es obligatorio."]
+    }
+  }
+}
+```
+
+| HTTP | Código                 | Causa                                             |
+| ---- | ---------------------- | ------------------------------------------------- |
+| 400  | `VALIDATION_ERROR`     | Campos ausentes, inválidos o adicionales          |
+| 400  | `INVALID_JSON`         | JSON mal formado o un valor JSON primitivo        |
+| 404  | `ROUTE_NOT_FOUND`      | Ruta o combinación de ruta y método inexistente   |
+| 413  | `PAYLOAD_TOO_LARGE`    | Cuerpo superior al límite de 16 KB                |
+| 415  | `UNSUPPORTED_ENCODING` | Charset o codificación de contenido no soportados |
+| 500  | `INTERNAL_ERROR`       | Fallo inesperado al procesar la solicitud         |
+
+Los errores inesperados se registran en la consola del backend. La respuesta pública
+omite detalles de Prisma, SQL y trazas internas. Las validaciones fallidas no escriben
+en la base de datos.
+
+### CORS
+
+La API responde con permisos CORS únicamente cuando `Origin` coincide con
+`FRONTEND_ORIGIN`. Las solicitudes preflight del navegador se atienden automáticamente.
+Las herramientas sin `Origin`, como Postman o los scripts, pueden utilizar la API.
+CORS controla el acceso a las respuestas desde el navegador; no sustituye autenticación.
 
 ## Comandos de calidad y compilación
 
-| Comando desde la raíz      | Función                                                             |
-| -------------------------- | ------------------------------------------------------------------- |
-| `npm run lint`             | Verifica reglas de ESLint sin modificar archivos                    |
-| `npm run typecheck`        | Comprueba tipos del frontend y backend                              |
-| `npm run format:check`     | Verifica el formato sin modificar archivos                          |
-| `npm run format`           | Aplica el formato de Prettier                                       |
-| `npm run build`            | Comprueba tipos y compila ambos proyectos                           |
-| `npm run test:persistence` | Verifica migraciones, restricciones, seed y persistencia            |
-| `npm run check`            | Ejecuta lint, formato, tipos, compilación y pruebas de persistencia |
+| Comando desde la raíz      | Función                                                           |
+| -------------------------- | ----------------------------------------------------------------- |
+| `npm run lint`             | Verifica reglas de ESLint sin modificar archivos                  |
+| `npm run typecheck`        | Comprueba tipos del frontend y backend                            |
+| `npm run format:check`     | Verifica el formato sin modificar archivos                        |
+| `npm run format`           | Aplica el formato de Prettier                                     |
+| `npm run build`            | Comprueba tipos y compila ambos proyectos                         |
+| `npm run test:persistence` | Verifica migraciones, restricciones, seed y persistencia          |
+| `npm run test:api`         | Verifica listado, creación, validaciones, errores y CORS por HTTP |
+| `npm test`                 | Ejecuta todas las pruebas del backend                             |
+| `npm run check`            | Ejecuta lint, formato, tipos, compilación y todas las pruebas     |
 
 Las pruebas usan una base temporal aislada bajo `backend/.test-data`, que se elimina
 al finalizar. No utilizan ni modifican `dev.db`. Verifican la instalación desde un archivo
 inexistente, la repetición segura de migraciones y seed, los campos obligatorios,
 los estados y longitudes inválidos, títulos repetidos, fechas y lectura desde un proceso nuevo.
+Las pruebas HTTP usan Supertest con Express y SQLite real para comprobar las respuestas
+y los datos guardados. Solo los fallos internos se simulan para verificar la respuesta `500`.
 
 Las salidas se generan en `frontend/dist` y `backend/dist`, y no se incluyen en Git.
 
@@ -209,6 +326,8 @@ npm run preview:frontend
 
 La vista previa del frontend está en <http://127.0.0.1:4173>. Es una comprobación local
 de la compilación; no constituye un despliegue de producción.
+Para consumir la API desde esa vista previa, configura `FRONTEND_ORIGIN=http://127.0.0.1:4173`
+y reinicia el backend. Al volver al servidor de desarrollo, restaura el origen del puerto 5173.
 
 ## Estructura actual
 
@@ -223,23 +342,37 @@ frontend/
 backend/
   src/
     config/           Lectura de entorno y ruta compartida de la base
+    errors/           Error HTTP con código, mensaje y campos opcionales
+    middlewares/      Validación del cuerpo, rutas inexistentes y errores
+    modules/tasks/
+      task.routes.ts      Rutas GET y POST
+      task.controller.ts  Controladores: solicitudes y respuestas HTTP
+      task.service.ts     Reglas de creación y campos admitidos
+      task.repository.ts  Consultas y escritura con Prisma
+      task.schema.ts      Validaciones Zod y tipo de entrada
     lib/prisma.ts     Cliente Prisma de la aplicación
     generated/prisma/ Cliente generado localmente
-    app.ts            Configuración de Express y endpoint de salud
+    app.ts            Construcción de Express, CORS, rutas y middlewares
     server.ts         Inicio y cierre del servidor
   prisma/
     schema.prisma     Modelo de tareas y estados
     migrations/       SQL versionado con restricciones
     ensure-database.ts Preparación del archivo SQLite
     seed.ts           Datos de ejemplo opcionales
-  tests/              Pruebas de persistencia
+  tests/              Pruebas de persistencia e integración de la API
   prisma.config.ts    Configuración de la CLI y las migraciones
 eslint.config.js      Reglas de JavaScript, TypeScript y React
 tsconfig.base.json    Opciones compartidas de TypeScript
 ```
 
-`app.ts` no abre un puerto ni depende de la configuración de inicio. Esta separación
-permitirá probar la API en las siguientes etapas.
+`app.ts` exporta `createApp(frontendOrigin)` y no abre un puerto. `server.ts` valida el
+entorno, verifica la base y comienza a escuchar. Las pruebas configuran una base temporal
+antes de importar la aplicación, sin iniciar el servidor de desarrollo.
+
+El flujo de una creación es: ruta → validación → controlador → servicio → repositorio →
+Prisma/SQLite. El controlador devuelve el resultado HTTP; el servicio normaliza la
+descripción y selecciona los campos; el repositorio concentra el acceso a datos.
+Express 5 dirige los errores de las funciones asíncronas al middleware central.
 
 Prisma, su cliente y el adaptador SQLite están fijados en la misma versión estable 7.10.0.
 El repositorio incluye overrides acotados para `deepmerge-ts` y `mysql2`, dependencias
@@ -247,7 +380,7 @@ indirectas de la CLI, con versiones corregidas de sus avisos de seguridad. No im
 el uso de MySQL por la aplicación. La generación, las migraciones y las pruebas verifican
 la compatibilidad de esos ajustes.
 
-## Commit y push manuales de la parte 2
+## Commit y push manuales de la parte 3
 
 Los commits y push los realiza el candidato. Git ya está inicializado; no es necesario
 volver a ejecutar `git init`. Antes de publicar:
@@ -256,9 +389,9 @@ volver a ejecutar `git init`. Antes de publicar:
 npm run check
 git status
 git diff
-git add README.md package.json package-lock.json eslint.config.js .gitignore .prettierignore backend
+git add README.md package.json package-lock.json backend
 git diff --cached
-git commit -m "feat: agregar persistencia de tareas con Prisma y SQLite"
+git commit -m "feat: implementar listado y creación de tareas con validaciones"
 git push
 ```
 
