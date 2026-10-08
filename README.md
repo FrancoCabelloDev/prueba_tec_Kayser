@@ -6,15 +6,15 @@ En Proceso o Completado.
 
 ## Avance actual
 
-Las partes 1, 2 y 3 del plan están implementadas: frontend y backend con TypeScript,
+Las partes 1, 2, 3 y 4 del plan están implementadas: frontend y backend con TypeScript,
 npm workspaces, ESLint, Prettier, persistencia con Prisma y SQLite y una API para
-listar y crear tareas. El frontend presenta la pantalla inicial. El backend verifica
+listar, crear, editar y eliminar tareas. El frontend presenta la pantalla inicial. El backend verifica
 la conexión y las tablas al arrancar y ofrece un endpoint de salud.
 
 La API incluye validaciones con Zod, CORS para el origen del frontend, manejo centralizado
 de errores y pruebas de integración sobre una base temporal. La base incluye una
 migración versionada, restricciones de datos, un seed opcional y pruebas de persistencia.
-La edición, la eliminación, Swagger y GitHub Actions se agregarán en los siguientes avances.
+Swagger, la integración del frontend y GitHub Actions se agregarán en los siguientes avances.
 La pantalla inicial todavía no consulta ni administra tareas.
 
 ## Requisitos
@@ -140,8 +140,8 @@ al formulario en su etapa correspondiente.
 SQLite guarda los estados como texto. La migración agrega un `CHECK` para impedir
 estados inválidos incluso mediante SQL directo, además de restricciones de campos
 obligatorios y longitud. El índice de `createdAt` e `id` permite ordenar las tareas de
-forma estable. La API valida los campos al crear tareas y rechaza propiedades adicionales.
-El control de los campos de edición se incorporará en la parte 4.
+forma estable. La API valida los campos al crear y editar tareas y rechaza propiedades adicionales.
+Los identificadores y las fechas son campos protegidos: no pueden enviarse en esos cuerpos.
 
 ### Cambios futuros en el esquema
 
@@ -182,16 +182,18 @@ Si cambias el puerto del backend, actualiza también `VITE_API_URL` y reinicia e
 Si cambias el origen del frontend, actualiza `FRONTEND_ORIGIN` y reinicia el backend.
 `localhost` y `127.0.0.1` son orígenes diferentes: utiliza las URLs documentadas de forma consistente.
 
-## API disponible en la parte 3
+## API disponible en la parte 4
 
-URL base de ejemplo: `http://127.0.0.1:3000/api`. Las solicitudes de creación deben
+URL base de ejemplo: `http://127.0.0.1:3000/api`. Las solicitudes de creación y edición deben
 enviar `Content-Type: application/json`. No se requiere autenticación.
 
-| Método | Ruta          | Resultado                                                   |
-| ------ | ------------- | ----------------------------------------------------------- |
-| GET    | `/api/health` | `200` con `{ "status": "ok" }`                              |
-| GET    | `/api/tasks`  | `200` con un arreglo de tareas; `[]` si la tabla está vacía |
-| POST   | `/api/tasks`  | `201` con la tarea creada y persistida                      |
+| Método | Ruta             | Resultado                                                   |
+| ------ | ---------------- | ----------------------------------------------------------- |
+| GET    | `/api/health`    | `200` con `{ "status": "ok" }`                              |
+| GET    | `/api/tasks`     | `200` con un arreglo de tareas; `[]` si la tabla está vacía |
+| POST   | `/api/tasks`     | `201` con la tarea creada y persistida                      |
+| PUT    | `/api/tasks/:id` | `200` con la tarea actualizada y persistida                 |
+| DELETE | `/api/tasks/:id` | `204` sin cuerpo después de eliminar la tarea               |
 
 El listado devuelve todas las tareas, ordenadas por `createdAt` descendente y por `id`
 descendente cuando las fechas coinciden. Las fechas se serializan como cadenas ISO 8601.
@@ -244,7 +246,7 @@ $taskBody = @{
     status = 'PENDIENTE'
 } | ConvertTo-Json
 
-Invoke-RestMethod -Uri 'http://127.0.0.1:3000/api/tasks' -Method Post `
+$createdTask = Invoke-RestMethod -Uri 'http://127.0.0.1:3000/api/tasks' -Method Post `
     -ContentType 'application/json; charset=utf-8' -Body ([System.Text.Encoding]::UTF8.GetBytes($taskBody))
 
 Invoke-RestMethod -Uri 'http://127.0.0.1:3000/api/tasks' -Method Get
@@ -252,6 +254,56 @@ Invoke-RestMethod -Uri 'http://127.0.0.1:3000/api/tasks' -Method Get
 
 La solicitud POST del ejemplo agrega una tarea a tu base local. También puedes utilizar
 Postman con el cuerpo JSON indicado. Swagger se incorporará en la parte 5.
+
+### Editar una tarea
+
+`PUT /api/tasks/:id` recibe los **cuatro campos editables completos**: `title`,
+`description`, `responsible` y `status`. Aplica los mismos tipos, estados, longitudes
+y recorte de espacios que la creación. Para quitar la descripción, envía `null` o texto vacío;
+omitirla es un error `400`. Las solicitudes parciales no están admitidas.
+
+El identificador de la URL debe ser un entero decimal entre `1` y `2147483647`, sin
+ceros iniciales. No se admiten negativos, decimales, signos, espacios, notación exponencial
+ni cadenas mixtas como `12abc`. Esta regla se aplica tanto al editar como al eliminar.
+Un identificador inválido devuelve `400` con mensajes en `error.fields.id`.
+Un identificador válido que no corresponde a una tarea devuelve `404` con `TASK_NOT_FOUND`.
+
+Al editar, se conservan `id` y `createdAt` y Prisma actualiza `updatedAt`. Se puede cambiar
+entre cualquiera de los tres estados. Enviar `id`, `createdAt`, `updatedAt` u otra propiedad
+adicional en el cuerpo devuelve `400` y conserva los datos originales.
+
+Para editar la tarea creada en el ejemplo anterior, usa la misma terminal de PowerShell:
+
+```powershell
+$updatedTaskBody = @{
+    title = 'Revisión del servidor finalizada'
+    description = $null
+    responsible = 'Ana Pérez'
+    status = 'COMPLETADO'
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://127.0.0.1:3000/api/tasks/$($createdTask.id)" -Method Put `
+    -ContentType 'application/json; charset=utf-8' -Body ([System.Text.Encoding]::UTF8.GetBytes($updatedTaskBody))
+
+Invoke-RestMethod -Uri 'http://127.0.0.1:3000/api/tasks' -Method Get
+```
+
+La respuesta `200` contiene la tarea completa, con el mismo formato de la creación.
+
+### Eliminar una tarea
+
+`DELETE /api/tasks/:id` elimina definitivamente la tarea indicada; no requiere un cuerpo.
+La respuesta exitosa es `204` sin JSON ni contenido. Eliminar o editar de nuevo esa tarea
+devuelve `404` con `TASK_NOT_FOUND`. Las demás tareas se conservan.
+
+Para eliminar la tarea del ejemplo y comprobar el listado:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:3000/api/tasks/$($createdTask.id)" -Method Delete
+Invoke-RestMethod -Uri 'http://127.0.0.1:3000/api/tasks' -Method Get
+```
+
+La confirmación visual antes de eliminar se implementará al conectar las acciones del frontend.
 
 ### Respuestas de error
 
@@ -271,39 +323,45 @@ objeto completo o de propiedades adicionales. Los mensajes se devuelven en espa�
 }
 ```
 
-| HTTP | Código                 | Causa                                             |
-| ---- | ---------------------- | ------------------------------------------------- |
-| 400  | `VALIDATION_ERROR`     | Campos ausentes, inválidos o adicionales          |
-| 400  | `INVALID_JSON`         | JSON mal formado o un valor JSON primitivo        |
-| 404  | `ROUTE_NOT_FOUND`      | Ruta o combinación de ruta y método inexistente   |
-| 413  | `PAYLOAD_TOO_LARGE`    | Cuerpo superior al límite de 16 KB                |
-| 415  | `UNSUPPORTED_ENCODING` | Charset o codificación de contenido no soportados |
-| 500  | `INTERNAL_ERROR`       | Fallo inesperado al procesar la solicitud         |
+| HTTP | Código                 | Causa                                                             |
+| ---- | ---------------------- | ----------------------------------------------------------------- |
+| 400  | `VALIDATION_ERROR`     | Identificador inválido o campos ausentes, inválidos o adicionales |
+| 400  | `INVALID_JSON`         | JSON mal formado o un valor JSON primitivo                        |
+| 400  | `INVALID_PATH`         | La ruta contiene una codificación de URL inválida                 |
+| 404  | `TASK_NOT_FOUND`       | La tarea que se intenta editar o eliminar no existe               |
+| 404  | `ROUTE_NOT_FOUND`      | Ruta o combinación de ruta y método inexistente                   |
+| 413  | `PAYLOAD_TOO_LARGE`    | Cuerpo superior al límite de 16 KB                                |
+| 415  | `UNSUPPORTED_ENCODING` | Charset o codificación de contenido no soportados                 |
+| 500  | `INTERNAL_ERROR`       | Fallo inesperado al procesar la solicitud                         |
 
 Los errores inesperados se registran en la consola del backend. La respuesta pública
 omite detalles de Prisma, SQL y trazas internas. Las validaciones fallidas no escriben
-en la base de datos.
+en la base de datos. Al editar y eliminar, el repositorio traduce el error de registro
+inexistente de Prisma (`P2025`) a un resultado que el servicio convierte en `404`.
+La operación se ejecuta directamente sobre el identificador, sin una consulta previa
+de existencia que pueda quedar desactualizada entre solicitudes concurrentes.
 
 ### CORS
 
 La API responde con permisos CORS únicamente cuando `Origin` coincide con
 `FRONTEND_ORIGIN`. Las solicitudes preflight del navegador se atienden automáticamente.
+Los métodos permitidos son `GET`, `POST`, `PUT` y `DELETE`.
 Las herramientas sin `Origin`, como Postman o los scripts, pueden utilizar la API.
 CORS controla el acceso a las respuestas desde el navegador; no sustituye autenticación.
 
 ## Comandos de calidad y compilación
 
-| Comando desde la raíz      | Función                                                           |
-| -------------------------- | ----------------------------------------------------------------- |
-| `npm run lint`             | Verifica reglas de ESLint sin modificar archivos                  |
-| `npm run typecheck`        | Comprueba tipos del frontend y backend                            |
-| `npm run format:check`     | Verifica el formato sin modificar archivos                        |
-| `npm run format`           | Aplica el formato de Prettier                                     |
-| `npm run build`            | Comprueba tipos y compila ambos proyectos                         |
-| `npm run test:persistence` | Verifica migraciones, restricciones, seed y persistencia          |
-| `npm run test:api`         | Verifica listado, creación, validaciones, errores y CORS por HTTP |
-| `npm test`                 | Ejecuta todas las pruebas del backend                             |
-| `npm run check`            | Ejecuta lint, formato, tipos, compilación y todas las pruebas     |
+| Comando desde la raíz      | Función                                                                |
+| -------------------------- | ---------------------------------------------------------------------- |
+| `npm run lint`             | Verifica reglas de ESLint sin modificar archivos                       |
+| `npm run typecheck`        | Comprueba tipos del frontend y backend                                 |
+| `npm run format:check`     | Verifica el formato sin modificar archivos                             |
+| `npm run format`           | Aplica el formato de Prettier                                          |
+| `npm run build`            | Comprueba tipos y compila ambos proyectos                              |
+| `npm run test:persistence` | Verifica migraciones, restricciones, seed y persistencia               |
+| `npm run test:api`         | Verifica las cuatro operaciones, validaciones, errores y CORS por HTTP |
+| `npm test`                 | Ejecuta todas las pruebas del backend                                  |
+| `npm run check`            | Ejecuta lint, formato, tipos, compilación y todas las pruebas          |
 
 Las pruebas usan una base temporal aislada bajo `backend/.test-data`, que se elimina
 al finalizar. No utilizan ni modifican `dev.db`. Verifican la instalación desde un archivo
@@ -311,6 +369,9 @@ inexistente, la repetición segura de migraciones y seed, los campos obligatorio
 los estados y longitudes inválidos, títulos repetidos, fechas y lectura desde un proceso nuevo.
 Las pruebas HTTP usan Supertest con Express y SQLite real para comprobar las respuestas
 y los datos guardados. Solo los fallos internos se simulan para verificar la respuesta `500`.
+También verifican que la edición conserve los campos protegidos, que las operaciones
+afecten solo a la tarea indicada, los identificadores inválidos, las tareas inexistentes
+y el flujo completo de crear, editar, consultar y eliminar.
 
 Las salidas se generan en `frontend/dist` y `backend/dist`, y no se incluyen en Git.
 
@@ -345,9 +406,10 @@ backend/
     errors/           Error HTTP con código, mensaje y campos opcionales
     middlewares/      Validación del cuerpo, rutas inexistentes y errores
     modules/tasks/
-      task.routes.ts      Rutas GET y POST
+      task.routes.ts      Rutas GET, POST, PUT y DELETE
       task.controller.ts  Controladores: solicitudes y respuestas HTTP
-      task.service.ts     Reglas de creación y campos admitidos
+      task.middleware.ts  Validación del identificador de la URL
+      task.service.ts     Campos editables y tareas inexistentes
       task.repository.ts  Consultas y escritura con Prisma
       task.schema.ts      Validaciones Zod y tipo de entrada
     lib/prisma.ts     Cliente Prisma de la aplicación
@@ -372,6 +434,8 @@ antes de importar la aplicación, sin iniciar el servidor de desarrollo.
 El flujo de una creación es: ruta → validación → controlador → servicio → repositorio →
 Prisma/SQLite. El controlador devuelve el resultado HTTP; el servicio normaliza la
 descripción y selecciona los campos; el repositorio concentra el acceso a datos.
+La edición añade la validación del identificador y exige los cuatro campos; la eliminación
+valida el identificador y no necesita un formulario de datos en la API.
 Express 5 dirige los errores de las funciones asíncronas al middleware central.
 
 Prisma, su cliente y el adaptador SQLite están fijados en la misma versión estable 7.10.0.
@@ -380,7 +444,7 @@ indirectas de la CLI, con versiones corregidas de sus avisos de seguridad. No im
 el uso de MySQL por la aplicación. La generación, las migraciones y las pruebas verifican
 la compatibilidad de esos ajustes.
 
-## Commit y push manuales de la parte 3
+## Commit y push manuales de la parte 4
 
 Los commits y push los realiza el candidato. Git ya está inicializado; no es necesario
 volver a ejecutar `git init`. Antes de publicar:
@@ -389,9 +453,9 @@ volver a ejecutar `git init`. Antes de publicar:
 npm run check
 git status
 git diff
-git add README.md package.json package-lock.json backend
+git add README.md backend
 git diff --cached
-git commit -m "feat: implementar listado y creación de tareas con validaciones"
+git commit -m "feat: implementar edición y eliminación de tareas"
 git push
 ```
 

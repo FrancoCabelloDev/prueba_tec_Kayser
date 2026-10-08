@@ -11,7 +11,7 @@ export function createApp(frontendOrigin: string) {
   app.use(
     cors({
       origin: (origin, callback) => callback(null, origin === frontendOrigin),
-      methods: ['GET', 'POST'],
+      methods: ['GET', 'POST', 'PUT', 'DELETE'],
       allowedHeaders: ['Content-Type'],
     }),
   );

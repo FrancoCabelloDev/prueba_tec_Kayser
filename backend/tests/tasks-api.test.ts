@@ -311,6 +311,307 @@ describe('Validaciones y errores de la API', () => {
   );
 });
 
+const validUpdate = {
+  title: 'Actualizar servidor',
+  description: 'Actualizar los servicios del equipo.',
+  responsible: 'Luis',
+  status: 'EN_PROCESO',
+};
+
+async function existingTask() {
+  return prisma.task.create({
+    data: {
+      title: validTask.title,
+      description: 'Descripción original',
+      responsible: validTask.responsible,
+      status: 'COMPLETADO',
+      updatedAt: new Date('2000-01-01T00:00:00Z'),
+    },
+  });
+}
+
+describe('Edición de tareas por HTTP', () => {
+  it.each(['PENDIENTE', 'EN_PROCESO', 'COMPLETADO'])(
+    'edita todos los campos y permite cambiar al estado %s',
+    async (status) => {
+      const original = await existingTask();
+      const response = await request(app)
+        .put(`/api/tasks/${original.id}`)
+        .send({ ...validUpdate, status })
+        .expect(200);
+
+      expect(response.body).toEqual({
+        ...validUpdate,
+        status,
+        id: original.id,
+        createdAt: original.createdAt.toISOString(),
+        updatedAt: expect.any(String),
+      });
+      expect(Date.parse(response.body.updatedAt)).toBeGreaterThan(original.updatedAt.getTime());
+      const persisted = await prisma.task.findUniqueOrThrow({ where: { id: original.id } });
+      expect(persisted).toMatchObject({ ...validUpdate, status });
+      expect(persisted.createdAt).toEqual(original.createdAt);
+      expect(persisted.updatedAt.toISOString()).toBe(response.body.updatedAt);
+      const list = await request(app).get('/api/tasks').expect(200);
+      expect(list.body).toEqual([response.body]);
+    },
+  );
+
+  it('recorta espacios en los campos de edición', async () => {
+    const original = await existingTask();
+    const response = await request(app)
+      .put(`/api/tasks/${original.id}`)
+      .send({
+        title: '  Título editado  ',
+        description: '  Detalle\nSegunda línea  ',
+        responsible: '  Luis Pérez  ',
+        status: 'EN_PROCESO',
+      })
+      .expect(200);
+    expect(response.body).toMatchObject({
+      title: 'Título editado',
+      description: 'Detalle\nSegunda línea',
+      responsible: 'Luis Pérez',
+    });
+  });
+
+  it.each([null, '', '   '])('permite borrar la descripción enviando %s', async (description) => {
+    const original = await existingTask();
+    const response = await request(app)
+      .put(`/api/tasks/${original.id}`)
+      .send({ ...validUpdate, description })
+      .expect(200);
+    expect(response.body.description).toBeNull();
+    expect(
+      (await prisma.task.findUniqueOrThrow({ where: { id: original.id } })).description,
+    ).toBeNull();
+  });
+
+  it('acepta los límites de longitud y mantiene las demás tareas sin cambios', async () => {
+    const original = await existingTask();
+    const unrelated = await existingTask();
+    const update = {
+      title: 'a'.repeat(150),
+      responsible: 'b'.repeat(100),
+      description: 'c'.repeat(2000),
+      status: 'COMPLETADO',
+    };
+    const response = await request(app).put(`/api/tasks/${original.id}`).send(update).expect(200);
+    expect(response.body).toMatchObject(update);
+    expect(await prisma.task.findUnique({ where: { id: unrelated.id } })).toEqual(unrelated);
+    expect(await prisma.task.count()).toBe(2);
+  });
+
+  it.each(invalidTasks)(
+    'rechaza %s al editar y conserva la tarea original',
+    async (_name, body, field) => {
+      const original = await existingTask();
+      const updateBody =
+        typeof body === 'object' && body !== null && !Array.isArray(body)
+          ? { description: 'Descripción enviada', ...body }
+          : body;
+      const response = await request(app)
+        .put(`/api/tasks/${original.id}`)
+        .set('Content-Type', 'application/json')
+        .send(JSON.stringify(updateBody))
+        .expect(400);
+      expect(response.body.error).toMatchObject({
+        code: 'VALIDATION_ERROR',
+        fields: { [field]: expect.arrayContaining([expect.any(String)]) },
+      });
+      expect(await prisma.task.findUnique({ where: { id: original.id } })).toEqual(original);
+    },
+  );
+
+  it('exige los cuatro campos editables en PUT y rechaza actualizaciones parciales', async () => {
+    const original = await existingTask();
+    const response = await request(app).put(`/api/tasks/${original.id}`).send({}).expect(400);
+    expect(Object.keys(response.body.error.fields).sort()).toEqual([
+      'description',
+      'responsible',
+      'status',
+      'title',
+    ]);
+    const missingDescription = await request(app)
+      .put(`/api/tasks/${original.id}`)
+      .send(validTask)
+      .expect(400);
+    expect(missingDescription.body.error.fields).toEqual({
+      description: ['Envía la descripción como texto o null al editar la tarea.'],
+    });
+    expect(await prisma.task.findUnique({ where: { id: original.id } })).toEqual(original);
+  });
+
+  it.each(['id', 'createdAt', 'updatedAt'])(
+    'impide modificar el campo protegido %s',
+    async (field) => {
+      const original = await existingTask();
+      const response = await request(app)
+        .put(`/api/tasks/${original.id}`)
+        .send({
+          ...validUpdate,
+          [field]: field === 'id' ? original.id + 100 : '2000-01-01T00:00:00Z',
+        })
+        .expect(400);
+      expect(response.body.error.code).toBe('VALIDATION_ERROR');
+      expect(response.body.error.fields.body).toEqual([expect.any(String)]);
+      expect(await prisma.task.findUnique({ where: { id: original.id } })).toEqual(original);
+    },
+  );
+
+  it('rechaza una edición sin cuerpo', async () => {
+    const original = await existingTask();
+    const response = await request(app).put(`/api/tasks/${original.id}`).expect(400);
+    expect(response.body.error.code).toBe('VALIDATION_ERROR');
+    expect(await prisma.task.findUnique({ where: { id: original.id } })).toEqual(original);
+  });
+
+  it('rechaza JSON mal formado al editar sin modificar la tarea', async () => {
+    const original = await existingTask();
+    const response = await request(app)
+      .put(`/api/tasks/${original.id}`)
+      .set('Content-Type', 'application/json')
+      .send('{"title":')
+      .expect(400);
+    expect(response.body.error.code).toBe('INVALID_JSON');
+    expect(await prisma.task.findUnique({ where: { id: original.id } })).toEqual(original);
+  });
+});
+
+describe('Eliminación de tareas por HTTP', () => {
+  it('elimina únicamente la tarea indicada y devuelve 204 sin cuerpo', async () => {
+    const removed = await existingTask();
+    const remaining = await existingTask();
+    const response = await request(app).delete(`/api/tasks/${removed.id}`).expect(204);
+    expect(response.text).toBe('');
+    expect(response.headers['content-type']).toBeUndefined();
+    expect(await prisma.task.findUnique({ where: { id: removed.id } })).toBeNull();
+    expect(await prisma.task.findUnique({ where: { id: remaining.id } })).toEqual(remaining);
+    const list = await request(app).get('/api/tasks').expect(200);
+    expect(list.body).toMatchObject([{ id: remaining.id }]);
+    expect(list.body).toHaveLength(1);
+  });
+
+  it('devuelve 404 al volver a eliminar o editar una tarea eliminada', async () => {
+    const original = await existingTask();
+    await request(app).delete(`/api/tasks/${original.id}`).expect(204);
+    const deletion = await request(app).delete(`/api/tasks/${original.id}`).expect(404);
+    const update = await request(app)
+      .put(`/api/tasks/${original.id}`)
+      .send(validUpdate)
+      .expect(404);
+    for (const response of [deletion, update]) {
+      expect(response.body).toEqual({
+        error: {
+          code: 'TASK_NOT_FOUND',
+          message: 'La tarea solicitada no existe.',
+        },
+      });
+    }
+    expect(await prisma.task.count()).toBe(0);
+  });
+
+  it('completa el flujo crear, editar, consultar y eliminar', async () => {
+    const created = await request(app).post('/api/tasks').send(validTask).expect(201);
+    const updated = await request(app)
+      .put(`/api/tasks/${created.body.id}`)
+      .send(validUpdate)
+      .expect(200);
+    const list = await request(app).get('/api/tasks').expect(200);
+    expect(list.body).toEqual([updated.body]);
+    await request(app).delete(`/api/tasks/${created.body.id}`).expect(204);
+    const empty = await request(app).get('/api/tasks').expect(200);
+    expect(empty.body).toEqual([]);
+    expect(await prisma.task.count()).toBe(0);
+  });
+});
+
+const invalidTaskIds = [
+  '0',
+  '-1',
+  '1.5',
+  'abc',
+  '1abc',
+  '1e3',
+  '0x10',
+  '+1',
+  '01',
+  '2147483648',
+  '9007199254740992',
+  '9'.repeat(100),
+  '%20',
+  '%201%20',
+  '1%2F2',
+  '1%0A',
+  '1%0D',
+  '1%0D%0A',
+];
+
+describe.each(['put', 'delete'] as const)('Identificadores y errores en %s', (method) => {
+  it.each(invalidTaskIds)(
+    'rechaza el identificador %s con 400 antes de consultar la base',
+    async (id) => {
+      const original = await existingTask();
+      const operation = method === 'put' ? 'update' : 'delete';
+      const databaseCall = vi.spyOn(repository, operation);
+      const response = await request(app)[method](`/api/tasks/${id}`).send(validUpdate).expect(400);
+      expect(response.body.error).toMatchObject({
+        code: 'VALIDATION_ERROR',
+        fields: { id: [expect.any(String)] },
+      });
+      expect(databaseCall).not.toHaveBeenCalled();
+      expect(await prisma.task.findUnique({ where: { id: original.id } })).toEqual(original);
+    },
+  );
+
+  it('rechaza una codificación de URL inválida con un error JSON de 400', async () => {
+    const response = await request(app)[method]('/api/tasks/%ZZ').send(validUpdate).expect(400);
+    expect(response.body).toEqual({
+      error: {
+        code: 'INVALID_PATH',
+        message: 'La ruta contiene una codificación inválida.',
+      },
+    });
+  });
+
+  it('devuelve 404 para un identificador válido inexistente sin afectar otras tareas', async () => {
+    const original = await existingTask();
+    const response = await request(app)
+      [method]('/api/tasks/2147483647')
+      .send(validUpdate)
+      .expect(404);
+    expect(response.body).toEqual({
+      error: {
+        code: 'TASK_NOT_FOUND',
+        message: 'La tarea solicitada no existe.',
+      },
+    });
+    expect(await prisma.task.findUnique({ where: { id: original.id } })).toEqual(original);
+    expect(await prisma.task.count()).toBe(1);
+  });
+
+  it('responde con 500 ante un fallo inesperado sin exponerlo ni modificar la tarea', async () => {
+    const original = await existingTask();
+    const operation = method === 'put' ? 'update' : 'delete';
+    const failure = new Error('Error interno de SQLite que no debe llegar al cliente');
+    vi.spyOn(repository, operation).mockRejectedValueOnce(failure);
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const response = await request(app)
+      [method](`/api/tasks/${original.id}`)
+      .send(validUpdate)
+      .expect(500);
+    expect(response.body).toEqual({
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'No se pudo procesar la solicitud.',
+      },
+    });
+    expect(response.text).not.toContain(failure.message);
+    expect(log).toHaveBeenCalledWith('Error inesperado al procesar la solicitud.', failure);
+    expect(await prisma.task.findUnique({ where: { id: original.id } })).toEqual(original);
+  });
+});
+
 describe('CORS para el frontend configurado', () => {
   it('incluye el origen permitido en las respuestas', async () => {
     const response = await request(app).get('/api/tasks').set('Origin', frontendOrigin).expect(200);
@@ -337,6 +638,19 @@ describe('CORS para el frontend configurado', () => {
       .set('Origin', 'http://otro-origen.test')
       .expect(200);
     expect(response.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
+  it.each(['PUT', 'DELETE'])('permite la preflight para %s', async (method) => {
+    const response = await request(app)
+      .options('/api/tasks/1')
+      .set('Origin', frontendOrigin)
+      .set('Access-Control-Request-Method', method)
+      .set('Access-Control-Request-Headers', 'content-type')
+      .expect(204);
+    expect(response.headers['access-control-allow-origin']).toBe(frontendOrigin);
+    expect(response.headers['access-control-allow-methods']).toContain(method);
+    expect(response.headers['access-control-allow-headers']).toBe('Content-Type');
+    expect(await prisma.task.count()).toBe(0);
   });
 
   it('permite clientes sin Origin, como Postman y scripts', async () => {

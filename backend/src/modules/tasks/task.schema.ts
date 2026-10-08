@@ -43,3 +43,21 @@ export const createTaskSchema = z.strictObject(
 );
 
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
+
+export const updateTaskSchema = createTaskSchema.extend({
+  description: createTaskSchema.shape.description.nonoptional({
+    error: 'Envía la descripción como texto o null al editar la tarea.',
+  }),
+});
+
+export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
+
+export const taskIdSchema = z
+  .string({ error: 'El identificador de la tarea es obligatorio.' })
+  .refine((value) => value === value.trim() && /^[1-9]\d*$/.test(value), {
+    message: 'El identificador debe ser un entero positivo sin ceros iniciales ni espacios.',
+  })
+  .transform(Number)
+  .refine((value) => Number.isSafeInteger(value) && value <= 2147483647, {
+    message: 'El identificador no puede superar 2147483647.',
+  });

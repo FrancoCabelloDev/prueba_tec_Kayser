@@ -10,6 +10,8 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, _request, resp
   let apiError: ApiError;
   if (error instanceof ApiError) {
     apiError = error;
+  } else if (error instanceof URIError && 'status' in error && error.status === 400) {
+    apiError = new ApiError(400, 'INVALID_PATH', 'La ruta contiene una codificación inválida.');
   } else if (typeof error === 'object' && error !== null && 'type' in error) {
     switch (error.type) {
       case 'entity.parse.failed':
