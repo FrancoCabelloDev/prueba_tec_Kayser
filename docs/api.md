@@ -7,16 +7,49 @@
 URL base de ejemplo: `http://127.0.0.1:3000/api`. Las solicitudes de creación y edición deben
 enviar `Content-Type: application/json`. No se requiere autenticación.
 
-| Método | Ruta             | Resultado                                                   |
-| ------ | ---------------- | ----------------------------------------------------------- |
-| GET    | `/api/health`    | `200` con `{ "status": "ok" }`                              |
-| GET    | `/api/tasks`     | `200` con un arreglo de tareas; `[]` si la tabla está vacía |
-| POST   | `/api/tasks`     | `201` con la tarea creada y persistida                      |
-| PUT    | `/api/tasks/:id` | `200` con la tarea actualizada y persistida                 |
-| DELETE | `/api/tasks/:id` | `204` sin cuerpo después de eliminar la tarea               |
+| Método | Ruta                | Resultado                                                   |
+| ------ | ------------------- | ----------------------------------------------------------- |
+| GET    | `/api/health`       | `200` con `{ "status": "ok" }`                              |
+| GET    | `/api/team-members` | `200` con integrantes activos; `[]` si no hay               |
+| GET    | `/api/tasks`        | `200` con un arreglo de tareas; `[]` si la tabla está vacía |
+| POST   | `/api/tasks`        | `201` con la tarea creada y persistida                      |
+| PUT    | `/api/tasks/:id`    | `200` con la tarea actualizada y persistida                 |
+| DELETE | `/api/tasks/:id`    | `204` sin cuerpo después de eliminar la tarea               |
 
 El listado devuelve todas las tareas, ordenadas por `createdAt` descendente y por `id`
 descendente cuando las fechas coinciden. Las fechas se serializan como cadenas ISO 8601.
+
+### Consultar integrantes activos
+
+`GET /api/team-members` devuelve el catálogo activo, sin autenticación, cuerpo ni
+parámetros. Ordena por `name` ascendente y desempata por `code` ascendente, usando
+la comparación de texto predeterminada de SQLite (BINARY). Devuelve exclusivamente
+`id`, `code`, `name` e `isActive`; no expone las fechas internas del integrante.
+
+```json
+[
+  { "id": 1, "code": "TI-001", "name": "Franco Cabello", "isActive": true },
+  { "id": 2, "code": "TI-002", "name": "Oscar Perez", "isActive": true }
+]
+```
+
+Los identificadores del ejemplo son ilustrativos. Los clientes deben utilizar los
+valores devueltos por la API. Los nombres pueden repetirse; cada código identifica
+a una persona. Los inactivos se conservan en SQLite y quedan excluidos del listado.
+Si el catálogo está vacío o todos están inactivos, responde `200` con `[]`.
+Un fallo inesperado responde `500` con `INTERNAL_ERROR` y un mensaje público en español.
+
+Con el backend iniciado, consulta sin modificar datos:
+
+```powershell
+Invoke-RestMethod -Uri 'http://127.0.0.1:3000/api/team-members' -Method Get
+```
+
+En Swagger abre **Integrantes → GET /team-members → Try it out → Execute**.
+Si esperabas integrantes y aparece `[]`, comprueba el archivo SQLite configurado,
+las migraciones y la carga `npm run db:seed:members` según la [guía del catálogo](integrantes.md).
+Este avance mantiene el responsable de las tareas como texto libre; la relación
+por identificador y el selector se implementarán juntos en la parte 12.
 
 ### Crear una tarea
 
@@ -172,7 +205,7 @@ CORS controla el acceso a las respuestas desde el navegador; no sustituye autent
 ## OpenAPI y Swagger UI
 
 La especificación explícita está en `backend/docs/openapi.yaml`, con OpenAPI 3.0.3.
-Incluye las cuatro operaciones CRUD, el endpoint de salud, los parámetros de ruta,
+Incluye las cuatro operaciones CRUD, la consulta de integrantes activos, el endpoint de salud, los parámetros de ruta,
 los campos obligatorios, estados y límites, los esquemas de tareas y errores y ejemplos
 de peticiones y respuestas. La creación y la edición tienen esquemas separados porque
 la descripción es opcional al crear y obligatoria, aunque admite `null`, al editar.
@@ -215,6 +248,7 @@ lo carga mediante una ruta relativa al módulo, independiente del directorio de 
 npm run docs:validate
 npm run test:docs
 npm run test:api
+npm run test:members:api
 ```
 
 `docs:validate` comprueba la estructura OpenAPI y las referencias internas. No necesita

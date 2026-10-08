@@ -1,7 +1,8 @@
 # Plan de implementación: integrantes predefinidos del equipo
 
 Este documento amplía las partes 1 a 9 ya implementadas. La parte 10 incorpora el
-catálogo inicial; las partes 11 a 14 describen trabajo pendiente. La aplicación
+catálogo inicial y la parte 11 añade su consulta HTTP; las partes 12 a 14 describen
+trabajo pendiente. La aplicación
 actual todavía guarda `Task.responsible` como texto libre.
 Los commits y push de los nuevos avances serán ejecutados manualmente por el candidato.
 
@@ -118,6 +119,9 @@ feat: registrar el catálogo inicial de integrantes del equipo
 Momento del push: después de verificar la migración y el seed. Confirmar CI en verde.
 
 ## Parte 11 — Consultar integrantes desde la API
+
+Implementada: módulo por capas, `GET /api/team-members`, contrato OpenAPI y Swagger,
+con 12 pruebas HTTP nuevas. [Consulta y publicación del avance](integrantes.md#consulta-de-integrantes--parte-11).
 
 Trabajo:
 

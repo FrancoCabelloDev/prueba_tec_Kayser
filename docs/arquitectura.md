@@ -15,7 +15,7 @@ validación, controlador, servicio y repositorio sin introducir servicios adicio
 
 El responsable de `Task` todavía se guarda como texto libre. La parte 10 añade
 `TeamMember` como catálogo independiente de integrantes, sin autenticación. La
-consulta desde la API se incorporará en la parte 11 y la asignación por identificador
+consulta desde la API está disponible desde la parte 11 y la asignación por identificador
 en la parte 12. La eliminación de tareas es física conforme al alcance implementado. Si se
 incorporan recuperación, permisos o historial, será necesario modificar el modelo,
 la API, las pruebas y la documentación.
@@ -27,6 +27,13 @@ Las rutas de `task.routes.ts` los conectan con los métodos HTTP. Los controlado
 reciben datos ya validados, invocan el servicio y devuelven el código HTTP y el cuerpo.
 El servicio aplica las reglas de la operación; el repositorio contiene las llamadas
 al cliente Prisma. Los componentes React consumen un cliente HTTP centralizado.
+
+El controlador del catálogo está en
+`backend/src/modules/team-members/team-member.controller.ts`. Su flujo es ruta →
+controlador → servicio → repositorio → Prisma/SQLite. El repositorio filtra activos,
+ordena por nombre y código y selecciona solo los cuatro campos públicos del DTO
+`TeamMemberSummary`. El middleware central trata los fallos inesperados. Esta
+consulta no recibe cuerpo ni parámetros y no necesita un esquema Zod de entrada.
 
 ## Estructura del proyecto
 
@@ -60,6 +67,11 @@ backend/
       task.repository.ts  Consultas y escritura con Prisma
       task.schema.ts      Validaciones Zod y tipo de entrada
     lib/prisma.ts     Cliente Prisma de la aplicación
+    modules/team-members/
+      team-member.routes.ts     Ruta GET del catálogo
+      team-member.controller.ts Respuesta HTTP del listado
+      team-member.service.ts    Consulta de integrantes activos
+      team-member.repository.ts Filtro, orden y selección de campos públicos
     generated/prisma/ Cliente generado localmente
     app.ts            Express, CORS, rutas, Swagger UI y middlewares
     server.ts         Inicio y cierre del servidor
@@ -76,6 +88,7 @@ backend/
     openapi.test.ts    Validación de esquemas y ejemplos OpenAPI
     server-lifecycle.test.ts CRUD con proceso real y reinicios
     team-members.test.ts Catálogo, restricciones, seed y migración desde el esquema anterior
+    team-members-api.test.ts Consulta HTTP, activos, homónimos, errores y compatibilidad del CRUD
   docs/openapi.yaml   Contrato explícito de la API
   scripts/validate-openapi.ts Verificación de la especificación
   prisma.config.ts    Configuración de la CLI y las migraciones

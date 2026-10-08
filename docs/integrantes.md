@@ -1,4 +1,4 @@
-# Catálogo de integrantes — Parte 10
+# Catálogo de integrantes — Partes 10 y 11
 
 [Volver al README](../README.md). [Plan completo de la ampliación](plan-integrantes.md).
 
@@ -15,9 +15,9 @@ no deben suponerse valores fijos. Los integrantes no son cuentas de acceso.
 ## Alcance implementado
 
 `TeamMember` contiene `id`, `code`, `name`, `isActive`, `createdAt` y `updatedAt`.
-Una migración nueva crea la tabla sin modificar `Task`. El catálogo todavía no se
-consulta mediante HTTP y el formulario sigue usando un responsable de texto libre.
-La parte 11 añadirá la consulta y Swagger; la parte 12 conectará las asignaciones y React.
+Una migración nueva crea la tabla sin modificar `Task`. Desde la parte 11 el catálogo
+activo se consulta mediante HTTP y Swagger. El formulario sigue usando un responsable
+de texto libre; la parte 12 conectará las asignaciones y React.
 
 | Campo      | Regla                                                                                  |
 | ---------- | -------------------------------------------------------------------------------------- |
@@ -82,7 +82,7 @@ ORDER BY code;
 En una instalación nueva deben aparecer los dos integrantes activos (`isActive = 1`).
 `Task` conserva las tareas que tenías registradas.
 
-## Verificación y commit manual
+## Verificación y commit manual de la parte 10
 
 ```bash
 npm run test:members
@@ -109,3 +109,46 @@ git push
 
 Revisa los archivos antes del commit. Los SQLite, `.env`, cliente generado y respaldos
 locales están excluidos de Git. Después del push comprueba los dos jobs de CI en verde.
+
+## Consulta de integrantes — Parte 11
+
+Con el backend iniciado, abre
+[GET /api/team-members](http://127.0.0.1:3000/api/team-members), o utiliza
+[Swagger UI](http://127.0.0.1:3000/api/docs/): **Integrantes → GET /team-members →
+Try it out → Execute**. Debe responder `200` con Franco Cabello y Oscar Perez si
+siguen activos. Una base sin integrantes activos devuelve `[]`.
+
+La respuesta contiene únicamente `id`, `code`, `name` e `isActive`. Se ordena por
+nombre y, ante homónimos, por código, según la comparación de texto de SQLite.
+Desactivar un integrante en la base lo excluye de la siguiente consulta, conservando
+su fila. La ruta es de lectura y no crea, modifica ni elimina integrantes o tareas.
+No requiere login y utiliza el mismo control CORS y middleware de errores que el CRUD.
+[Contrato y ejemplos de la API](api.md#consultar-integrantes-activos).
+
+El módulo está en `backend/src/modules/team-members/`, separado en rutas, controlador,
+servicio y repositorio. La especificación está en `backend/docs/openapi.yaml`.
+`backend/tests/team-members-api.test.ts` añade 12 pruebas con SQLite temporal,
+incluidas respuestas contrastadas contra OpenAPI, homónimos, bajas, error 500 y
+compatibilidad con el CRUD actual. Se ejecutan automáticamente en `npm test` y CI.
+
+```bash
+npm run test:members:api
+npm run check
+```
+
+Esta parte no añade migraciones ni cambia el seed. Si vienes de la parte 10 con la
+base preparada, inicia el backend actualizado para consultar el catálogo. Si utilizas
+la compilación, ejecuta antes `npm run build` y reinicia el servidor compilado.
+
+Publica manualmente este avance después de verificarlo:
+
+```bash
+git status
+git diff
+git add README.md package.json backend/package.json backend/src/app.ts backend/src/modules/team-members backend/docs/openapi.yaml backend/tests/team-members-api.test.ts backend/tests/openapi.test.ts docs
+git diff --cached
+git commit -m "feat: consultar integrantes activos desde la API"
+git push
+```
+
+Confirma CI en verde para este commit antes de continuar con la parte 12.

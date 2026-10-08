@@ -5,6 +5,7 @@ import { openApiDocument } from './config/openapi.js';
 import { errorHandler } from './middlewares/error-handler.js';
 import { routeNotFound } from './middlewares/route-not-found.js';
 import { taskRouter } from './modules/tasks/task.routes.js';
+import { teamMemberRouter } from './modules/team-members/team-member.routes.js';
 
 export function createApp(frontendOrigin: string) {
   const app = express();
@@ -24,6 +25,7 @@ export function createApp(frontendOrigin: string) {
   });
 
   app.use('/api/tasks', taskRouter);
+  app.use('/api/team-members', teamMemberRouter);
   app.get('/api/openapi.json', (_request, response) => {
     response.status(200).json(openApiDocument);
   });

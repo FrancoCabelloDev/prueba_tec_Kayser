@@ -31,6 +31,15 @@ las pruebas con Supertest y comprueba la configuración y el arranque del servid
 
 ## Recorrido manual
 
+Para comprobar el catálogo de la parte 11, ejecuta `npm run test:members:api`.
+Sus 12 pruebas HTTP utilizan SQLite temporal y verifican lista vacía, activos e
+inactivos, orden por nombre y código, homónimos, DTO público, bajas posteriores,
+consulta sin escrituras, error 500, CORS, publicación en Swagger y compatibilidad
+con el CRUD de tareas. Están incluidas en `npm test` y `npm run check`.
+
+Con el catálogo cargado, abre Swagger → Integrantes → GET /team-members → Try it out
+→ Execute y comprueba la respuesta `200` con los integrantes activos.
+
 Inicia los servidores en terminales separadas para poder reiniciar únicamente el backend:
 
 ```bash
@@ -144,3 +153,20 @@ El 8 de octubre de 2026, en Windows con Node.js 24.21.0 y npm 11.19.0:
 - `PRAGMA integrity_check` devolvió `ok`.
 
 Esta verificación corresponde al avance local. CI se comprobará después del push manual.
+
+## Comprobación de la parte 11
+
+El 8 de octubre de 2026 se verificó el avance en Windows con Node.js 24.21.0 y npm
+11.19.0:
+
+- `npm run test:members:api`: las 12 nuevas pruebas HTTP aprobaron con SQLite temporal.
+- `npm run check`: lint, formato, OpenAPI, tipos y compilación correctos; **248 pruebas
+  aprobadas** (42 de frontend y 206 de backend).
+- En el backend local, `GET /api/team-members` devolvió los dos integrantes activos
+  con únicamente los campos públicos; `/api/health` devolvió `status: ok`.
+- Desde Swagger se abrió Integrantes → GET /team-members → Try it out → Execute.
+  La respuesta real fue `200`, con Franco Cabello y Oscar Perez.
+- La verificación local utilizó únicamente consultas de lectura. Esta parte no
+  añade migraciones ni cambia el contrato de tareas; el selector queda para la parte 12.
+
+Los jobs de GitHub Actions se revisarán después del commit y push manuales del candidato.

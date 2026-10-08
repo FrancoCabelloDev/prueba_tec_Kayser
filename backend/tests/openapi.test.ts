@@ -13,6 +13,8 @@ describe('Especificación OpenAPI', () => {
     expect(document.servers).toEqual([{ url: '/api', description: expect.any(String) }]);
     expect(document.security).toEqual([]);
     expect(document.paths['/tasks']?.get?.responses).toHaveProperty('200');
+    expect(document.paths['/team-members']?.get?.responses).toHaveProperty('200');
+    expect(document.paths['/team-members']?.get?.responses).toHaveProperty('500');
     expect(document.paths['/tasks']?.post?.responses).toHaveProperty('201');
     expect(document.paths['/tasks/{id}']?.put?.responses).toHaveProperty('200');
     const deletion = document.paths['/tasks/{id}']?.delete?.responses['204'];

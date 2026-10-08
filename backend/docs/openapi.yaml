@@ -4,6 +4,7 @@ info:
   version: 0.1.0
   description: |
     API para listar, crear, editar y eliminar tareas con persistencia en SQLite.
+    Incluye la consulta del catálogo de integrantes activos del equipo.
     No requiere autenticación. Los estados son PENDIENTE, EN_PROCESO y COMPLETADO.
     Se recortan los espacios al inicio y al final de los campos de texto antes de
     validar sus longitudes. La descripción vacía se guarda como null.
@@ -18,6 +19,8 @@ tags:
     description: Operaciones de gestión de tareas
   - name: Salud
     description: Comprobación básica del servidor
+  - name: Integrantes
+    description: Consulta del catálogo de integrantes activos del equipo
 paths:
   /health:
     get:
@@ -40,6 +43,45 @@ paths:
                     enum: [ok]
               example:
                 status: ok
+  /team-members:
+    get:
+      tags: [Integrantes]
+      operationId: listActiveTeamMembers
+      summary: Listar integrantes activos del equipo
+      description: |
+        Devuelve únicamente integrantes con isActive=true, ordenados por name
+        ascendente y, ante nombres iguales, por code ascendente. La ordenación
+        utiliza la comparación de texto predeterminada de SQLite (BINARY).
+        Devuelve [] si el catálogo está vacío o todos los integrantes están inactivos.
+        No requiere autenticación, cuerpo ni parámetros. No utiliza paginación.
+        Publica solo id, code, name e isActive. La consulta no modifica los datos.
+        En esta fase las tareas todavía reciben responsible como texto libre.
+      responses:
+        '200':
+          description: Listado de integrantes activos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActiveTeamMember'
+              examples:
+                integrantesIniciales:
+                  summary: Catálogo inicial; los identificadores son ilustrativos
+                  value:
+                    - id: 1
+                      code: TI-001
+                      name: Franco Cabello
+                      isActive: true
+                    - id: 2
+                      code: TI-002
+                      name: Oscar Perez
+                      isActive: true
+                vacio:
+                  summary: No hay integrantes activos
+                  value: []
+        '500':
+          $ref: '#/components/responses/InternalError'
   /tasks:
     get:
       tags: [Tareas]
@@ -218,6 +260,41 @@ components:
         maximum: 2147483647
       example: 1
   schemas:
+    ActiveTeamMember:
+      type: object
+      additionalProperties: false
+      required: [id, code, name, isActive]
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          readOnly: true
+          description: Identificador generado por el servidor; no asumir valores fijos.
+          example: 1
+        code:
+          type: string
+          minLength: 1
+          maxLength: 30
+          pattern: '^[A-Z0-9]+(?:-[A-Z0-9]+)*$'
+          readOnly: true
+          description: Código interno único y estable del integrante.
+          example: TI-001
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          pattern: '\S'
+          readOnly: true
+          description: Nombre del integrante; permite homónimos identificados por código.
+          example: Franco Cabello
+        isActive:
+          type: boolean
+          enum: [true]
+          readOnly: true
+          description: Siempre true en el listado de integrantes activos.
+          example: true
     TaskTitle:
       type: string
       minLength: 1
