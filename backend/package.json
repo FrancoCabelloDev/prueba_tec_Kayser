@@ -13,12 +13,14 @@
     "db:migrate:dev": "tsx prisma/ensure-database.ts && prisma migrate dev",
     "db:status": "prisma migrate status",
     "db:seed": "prisma db seed",
+    "db:seed:members": "tsx prisma/seed-members.ts",
     "test": "npm run db:generate && vitest run",
     "test:api": "npm run db:generate && vitest run tests/tasks-api.test.ts",
     "test:lifecycle": "npm run db:generate && vitest run tests/server-lifecycle.test.ts",
     "test:docs": "vitest run tests/openapi.test.ts",
     "docs:validate": "tsx scripts/validate-openapi.ts",
-    "test:persistence": "npm run db:generate && vitest run tests/persistence.test.ts"
+    "test:persistence": "npm run db:generate && vitest run tests/persistence.test.ts",
+    "test:members": "npm run db:generate && vitest run tests/team-members.test.ts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "7.10.0",

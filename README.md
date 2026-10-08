@@ -108,6 +108,19 @@ npm run db:seed
 El seed solo inserta ejemplos cuando la tabla está vacía. Si contiene tareas, conserva
 los datos existentes. No es necesario ejecutarlo para usar la aplicación.
 
+**Catálogo de integrantes (parte 10):** después de migrar, carga los integrantes
+indicados por el candidato:
+
+```bash
+npm run db:seed:members
+```
+
+Se registran **TI-001 — Franco Cabello** y **TI-002 — Oscar Perez** en `TeamMember`.
+Repetir la carga no duplica registros ni cambia nombres, estados o fechas existentes.
+Es independiente del seed de tareas. En este avance el formulario todavía utiliza
+un responsable de texto libre; la consulta HTTP del catálogo y el selector se
+implementarán en las partes 11 y 12. [Guía del catálogo](docs/integrantes.md).
+
 ### 5. Iniciar frontend y backend
 
 ```bash
@@ -130,7 +143,9 @@ Los puertos 3000 y 5173 deben estar disponibles. Para detener ambos proyectos, p
 
 Para abrir el proyecto después de la primera instalación, basta con ejecutar
 `npm run dev` desde la raíz. No vuelvas a copiar los `.env` ni a cargar ejemplos.
-Si descargaste cambios con nuevas migraciones, ejecuta antes `npm run db:migrate`.
+Si descargaste cambios con nuevas migraciones, ejecuta antes `npm run db:generate`
+y `npm run db:migrate`. Para incorporar el catálogo de la parte 10, ejecuta también
+`npm run db:seed:members`.
 
 ### Iniciar en dos terminales
 
@@ -197,6 +212,7 @@ y no modifican tu `dev.db`. Las de React simulan respuestas HTTP.
 | `npm run test:frontend`    | Listado, formularios, errores y eliminación en React |
 | `npm run test:api`         | CRUD, validaciones, errores, CORS y contrato HTTP    |
 | `npm run test:persistence` | Migraciones, restricciones, seed y persistencia      |
+| `npm run test:members`     | Catálogo, carga repetible y conservación de tareas   |
 | `npm run test:lifecycle`   | CRUD por HTTP con reinicios reales del backend       |
 | `npm run test:docs`        | Ejemplos y esquemas OpenAPI                          |
 | `npm run docs:validate`    | Estructura y referencias de OpenAPI                  |
@@ -252,11 +268,14 @@ docs/                  Guías técnicas, verificación y entrega
 .github/workflows/     Integración continua
 ```
 
-El responsable es un texto libre. `Task` representa una tarea y contiene también
+El responsable de la tarea todavía es un texto libre. La tabla `TeamMember` contiene
+el catálogo inicial del equipo, sin relación con `Task` hasta la parte 12.
+`Task` representa una tarea y contiene también
 identificador y fechas. Prisma consulta el archivo SQLite local; no aloja la base
 en un servidor propio. No se utilizan procedimientos almacenados.
 
-El alcance es un CRUD para una prueba técnica. No incluye autenticación, usuarios,
+El alcance es un CRUD para una prueba técnica con un catálogo inicial de integrantes.
+No incluye autenticación, administración de integrantes desde la interfaz,
 paginación, filtros, historial ni recuperación de tareas eliminadas. Posibles mejoras:
 usuarios y permisos, filtros y paginación, control de ediciones concurrentes y
 eliminación lógica si el negocio necesita recuperación.
@@ -265,6 +284,8 @@ eliminación lógica si el negocio necesita recuperación.
 
 - [Solución de problemas de instalación y ejecución](docs/solucion-de-problemas.md).
 - [Consultar SQLite, DataGrip, Prisma Studio y migraciones](docs/base-de-datos.md).
+- [Catálogo de integrantes, seed y publicación de la parte 10](docs/integrantes.md).
+- [Plan de ampliación: partes 10 a 14](docs/plan-integrantes.md).
 - [Arquitectura, controladores y comportamiento del frontend](docs/arquitectura.md).
 - [API, Swagger y ejemplos de solicitudes](docs/api.md).
 - [Pruebas, recorrido manual y GitHub Actions](docs/verificacion.md).

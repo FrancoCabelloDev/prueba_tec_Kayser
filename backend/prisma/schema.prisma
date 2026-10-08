@@ -15,6 +15,17 @@ enum TaskStatus {
   COMPLETADO
 }
 
+model TeamMember {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([isActive, name, code])
+}
+
 model Task {
   id          Int        @id @default(autoincrement())
   title       String

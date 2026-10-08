@@ -39,6 +39,11 @@ El seed utiliza una transacción e inserta tres tareas, una por cada estado, sol
 tabla está vacía. Si ya hay tareas, conserva la información. Volver a ejecutarlo no
 duplica ejemplos. No se entrega `dev.db` en Git: cada instalación la crea con estos comandos.
 
+Desde la parte 10 también existe `TeamMember`, el catálogo de integrantes. Cárgalo
+después de migrar con `npm run db:seed:members`: registra a Franco Cabello y Oscar
+Perez sin duplicarlos ni sobrescribir integrantes existentes. No crea tareas.
+[Reglas y uso del catálogo](integrantes.md).
+
 ## Consultar con DataGrip
 
 La consulta en DataGrip es opcional; la aplicación puede utilizarse sin instalarlo.
@@ -69,6 +74,17 @@ SELECT id, title, description, responsible, status, createdAt, updatedAt
 FROM "Task"
 ORDER BY createdAt DESC, id DESC;
 ```
+
+Para ver los integrantes, actualiza la fuente de datos y abre **TeamMember** o ejecuta:
+
+```sql
+SELECT id, code, name, isActive, createdAt, updatedAt
+FROM "TeamMember"
+ORDER BY code;
+```
+
+SQLite muestra `isActive` como `1` (activo) o `0` (inactivo). En esta fase `Task`
+todavía conserva su responsable de texto; la relación se añadirá en la parte 12.
 
 La tabla se llama `Task` porque el modelo Prisma representa una tarea en singular.
 Es una convención válida; contiene todas las filas de tareas. `_prisma_migrations`
@@ -124,6 +140,11 @@ forma estable. La API valida los campos al crear y editar tareas y rechaza propi
 Los identificadores y las fechas son campos protegidos: no pueden enviarse en esos cuerpos.
 
 ## Cambios futuros en el esquema
+
+La migración `20261008214754_crear_integrantes` añade únicamente `TeamMember`, sus
+restricciones y sus índices. Mantiene las filas, fechas, índices y secuencia de `Task`.
+El código del integrante es único; su nombre admite homónimos. Hay un índice sobre
+`isActive`, `name` y `code`. Las reglas completas están en la [guía del catálogo](integrantes.md).
 
 Para preparar una nueva migración de desarrollo:
 

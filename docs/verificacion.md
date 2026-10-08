@@ -19,6 +19,7 @@ Las pruebas de React simulan respuestas HTTP para reproducir errores y solicitud
 | ----------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | API HTTP          | `npm run test:api`                            | CRUD, campos obligatorios, espacios, longitudes, estados, identificadores, tareas inexistentes, errores, CORS y respuestas acordes con OpenAPI               |
 | Persistencia      | `npm run test:persistence`                    | Migraciones y seed repetibles, restricciones SQL, fechas, campos opcionales, títulos repetidos y lectura desde un proceso nuevo                              |
+| Integrantes       | `npm run test:members`                        | 38 casos: códigos únicos, homónimos, validación, CHECK, carga atómica y repetible; actualización desde el esquema anterior conservando tareas e índices      |
 | Inicio y reinicio | `npm run test:lifecycle`                      | Servidor Node real: crear, consultar, editar, reiniciar, comprobar cambios, eliminar y volver a reiniciar para verificar que la eliminación persiste         |
 | Documentación     | `npm run test:docs` y `npm run docs:validate` | Esquemas, ejemplos, referencias y estructura OpenAPI                                                                                                         |
 | Interfaz React    | `npm run test:frontend`                       | Carga, vacío, error, reintento, formulario obligatorio, longitudes, precarga, cancelación, conservación de datos, confirmación y bloqueo durante solicitudes |
@@ -125,3 +126,21 @@ La instalación habitual del candidato ocupaba 3000 y 5173, por lo que el clon u
 4173 con el origen CORS correspondiente. Los servidores y la base de la instalación
 habitual no se modificaron. Esta comprobación local no sustituye revisar CI para el
 commit final que el candidato publique.
+
+## Comprobación de la parte 10
+
+El 8 de octubre de 2026, en Windows con Node.js 24.21.0 y npm 11.19.0:
+
+- `npm run check`: lint, formato, OpenAPI, tipos y compilación correctos; **236 pruebas
+  aprobadas** (42 de frontend y 194 de backend, incluidas las 38 nuevas del catálogo).
+- `prisma validate`: esquema válido.
+- Las pruebas del catálogo comprobaron una instalación vacía y la actualización
+  desde la migración anterior, conservando las tareas y sus restricciones.
+- Antes de actualizar la base local, se creó un respaldo mediante la API de backup
+  de SQLite en `.document_work/part10-respaldo-antes-de-migrar.db`, excluido de Git.
+- Se aplicó la migración y se cargaron TI-001 — Franco Cabello y TI-002 — Oscar Perez.
+- Una comparación antes/después confirmó que la tarea local, la definición SQL de
+  `Task`, sus índices y su secuencia autoincremental permanecieron iguales.
+- `PRAGMA integrity_check` devolvió `ok`.
+
+Esta verificación corresponde al avance local. CI se comprobará después del push manual.

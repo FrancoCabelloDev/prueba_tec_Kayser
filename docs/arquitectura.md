@@ -13,8 +13,10 @@ local. Prisma aporta un cliente tipado, migraciones y consultas parametrizadas.
 No se utilizan procedimientos almacenados. Para este CRUD pequeño se separan rutas,
 validación, controlador, servicio y repositorio sin introducir servicios adicionales.
 
-El responsable se guarda como texto libre; no se requiere una tabla de usuarios ni
-autenticación. La eliminación es física conforme al alcance implementado. Si se
+El responsable de `Task` todavía se guarda como texto libre. La parte 10 añade
+`TeamMember` como catálogo independiente de integrantes, sin autenticación. La
+consulta desde la API se incorporará en la parte 11 y la asignación por identificador
+en la parte 12. La eliminación de tareas es física conforme al alcance implementado. Si se
 incorporan recuperación, permisos o historial, será necesario modificar el modelo,
 la API, las pruebas y la documentación.
 
@@ -62,14 +64,18 @@ backend/
     app.ts            Express, CORS, rutas, Swagger UI y middlewares
     server.ts         Inicio y cierre del servidor
   prisma/
-    schema.prisma     Modelo de tareas y estados
+    schema.prisma     Modelos de tareas, estados e integrantes
     migrations/       SQL versionado con restricciones
     ensure-database.ts Preparación del archivo SQLite
     seed.ts           Datos de ejemplo opcionales
+    team-members.data.ts Integrantes iniciales confirmados
+    team-members.seed.ts Validación y carga transaccional del catálogo
+    seed-members.ts   Entrada del comando db:seed:members
   tests/              Pruebas de persistencia e integración de la API
     helpers/openapi.ts Validación del contrato en las pruebas HTTP
     openapi.test.ts    Validación de esquemas y ejemplos OpenAPI
     server-lifecycle.test.ts CRUD con proceso real y reinicios
+    team-members.test.ts Catálogo, restricciones, seed y migración desde el esquema anterior
   docs/openapi.yaml   Contrato explícito de la API
   scripts/validate-openapi.ts Verificación de la especificación
   prisma.config.ts    Configuración de la CLI y las migraciones
