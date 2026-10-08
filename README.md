@@ -6,7 +6,7 @@ En Proceso o Completado.
 
 ## Avance actual
 
-Las partes 1, 2, 3 y 4 del plan están implementadas: frontend y backend con TypeScript,
+Las partes 1, 2, 3, 4 y 5 del plan están implementadas: frontend y backend con TypeScript,
 npm workspaces, ESLint, Prettier, persistencia con Prisma y SQLite y una API para
 listar, crear, editar y eliminar tareas. El frontend presenta la pantalla inicial. El backend verifica
 la conexión y las tablas al arrancar y ofrece un endpoint de salud.
@@ -14,7 +14,8 @@ la conexión y las tablas al arrancar y ofrece un endpoint de salud.
 La API incluye validaciones con Zod, CORS para el origen del frontend, manejo centralizado
 de errores y pruebas de integración sobre una base temporal. La base incluye una
 migración versionada, restricciones de datos, un seed opcional y pruebas de persistencia.
-Swagger, la integración del frontend y GitHub Actions se agregarán en los siguientes avances.
+La API está documentada con OpenAPI y Swagger UI. La integración del frontend y
+GitHub Actions se agregarán en los siguientes avances.
 La pantalla inicial todavía no consulta ni administra tareas.
 
 ## Requisitos
@@ -166,6 +167,8 @@ npm run dev
 
 - Frontend: <http://127.0.0.1:5173>
 - Salud de la API: <http://127.0.0.1:3000/api/health>
+- Swagger UI: <http://127.0.0.1:3000/api/docs/>
+- Contrato OpenAPI en JSON: <http://127.0.0.1:3000/api/openapi.json>
 
 El endpoint de salud devuelve `200` con este JSON:
 
@@ -182,7 +185,7 @@ Si cambias el puerto del backend, actualiza también `VITE_API_URL` y reinicia e
 Si cambias el origen del frontend, actualiza `FRONTEND_ORIGIN` y reinicia el backend.
 `localhost` y `127.0.0.1` son orígenes diferentes: utiliza las URLs documentadas de forma consistente.
 
-## API disponible en la parte 4
+## API disponible en la parte 5
 
 URL base de ejemplo: `http://127.0.0.1:3000/api`. Las solicitudes de creación y edición deben
 enviar `Content-Type: application/json`. No se requiere autenticación.
@@ -253,7 +256,7 @@ Invoke-RestMethod -Uri 'http://127.0.0.1:3000/api/tasks' -Method Get
 ```
 
 La solicitud POST del ejemplo agrega una tarea a tu base local. También puedes utilizar
-Postman con el cuerpo JSON indicado. Swagger se incorporará en la parte 5.
+Postman con el cuerpo JSON indicado o probar las operaciones desde Swagger UI.
 
 ### Editar una tarea
 
@@ -349,19 +352,79 @@ Los métodos permitidos son `GET`, `POST`, `PUT` y `DELETE`.
 Las herramientas sin `Origin`, como Postman o los scripts, pueden utilizar la API.
 CORS controla el acceso a las respuestas desde el navegador; no sustituye autenticación.
 
+## OpenAPI y Swagger UI
+
+La especificación explícita está en `backend/docs/openapi.yaml`, con OpenAPI 3.0.3.
+Incluye las cuatro operaciones CRUD, el endpoint de salud, los parámetros de ruta,
+los campos obligatorios, estados y límites, los esquemas de tareas y errores y ejemplos
+de peticiones y respuestas. La creación y la edición tienen esquemas separados porque
+la descripción es opcional al crear y obligatoria, aunque admite `null`, al editar.
+
+Con la base configurada y migrada, inicia el backend desde la raíz:
+
+```bash
+npm run dev:backend
+```
+
+Abre <http://127.0.0.1:3000/api/docs/>. La ruta `/api/docs` redirige a la URL con barra final.
+Swagger obtiene el contrato desde `/api/openapi.json`; ambos se generan a partir del mismo
+archivo YAML. Los recursos de la interfaz se sirven desde las dependencias locales,
+sin utilizar una CDN ni enviar la especificación a un validador externo.
+
+### Probar el CRUD desde Swagger
+
+1. Abre **POST /tasks**, pulsa **Try it out**, revisa el JSON de ejemplo y pulsa **Execute**.
+   Debe responder `201`. Conserva el `id` que aparece en la respuesta.
+2. Ejecuta **GET /tasks**. Debe responder `200` y mostrar la tarea creada.
+3. Abre **PUT /tasks/{id}**, pulsa **Try it out**, introduce ese identificador y envía los
+   cuatro campos completos. Debe responder `200` con los datos actualizados.
+4. Ejecuta de nuevo **GET /tasks** para consultar el cambio.
+5. Ejecuta **DELETE /tasks/{id}** con ese identificador. Debe responder `204` sin cuerpo.
+6. Consulta **GET /tasks** para comprobar que desapareció. Repetir la eliminación devuelve `404`.
+
+Las operaciones ejecutadas desde Swagger utilizan la base configurada en `DATABASE_URL`:
+crear, editar y eliminar modifican los datos locales igual que cualquier cliente de la API.
+Utiliza una tarea de ejemplo propia para este recorrido.
+
+El servidor de OpenAPI usa la URL relativa `/api`, por lo que Swagger utiliza el mismo
+origen y puerto del backend. Si cambias `PORT`, abre Swagger en ese nuevo puerto;
+no necesitas modificar el YAML. También funciona al ejecutar `npm run start:backend`
+después de compilar. Conserva `backend/docs/openapi.yaml` junto al proyecto: el backend
+lo carga mediante una ruta relativa al módulo, independiente del directorio de trabajo.
+
+### Verificar y mantener el contrato
+
+```bash
+npm run docs:validate
+npm run test:docs
+npm run test:api
+```
+
+`docs:validate` comprueba la estructura OpenAPI y las referencias internas. No necesita
+iniciar el backend ni configurar una base de datos. `test:docs` comprueba los ejemplos
+y esquemas de entrada. Las pruebas HTTP verifican la publicación del contrato, la página
+y los recursos de Swagger, y contrastan respuestas reales del CRUD con los esquemas
+documentados, incluidos los errores y el `204` sin cuerpo.
+
+Si cambias rutas, campos, reglas o respuestas, actualiza el YAML y ejecuta `npm run check`.
+Swagger documenta y permite probar la API; la validación de las solicitudes sigue siendo
+responsabilidad de Zod y de las restricciones de la base.
+
 ## Comandos de calidad y compilación
 
-| Comando desde la raíz      | Función                                                                |
-| -------------------------- | ---------------------------------------------------------------------- |
-| `npm run lint`             | Verifica reglas de ESLint sin modificar archivos                       |
-| `npm run typecheck`        | Comprueba tipos del frontend y backend                                 |
-| `npm run format:check`     | Verifica el formato sin modificar archivos                             |
-| `npm run format`           | Aplica el formato de Prettier                                          |
-| `npm run build`            | Comprueba tipos y compila ambos proyectos                              |
-| `npm run test:persistence` | Verifica migraciones, restricciones, seed y persistencia               |
-| `npm run test:api`         | Verifica las cuatro operaciones, validaciones, errores y CORS por HTTP |
-| `npm test`                 | Ejecuta todas las pruebas del backend                                  |
-| `npm run check`            | Ejecuta lint, formato, tipos, compilación y todas las pruebas          |
+| Comando desde la raíz      | Función                                                                           |
+| -------------------------- | --------------------------------------------------------------------------------- |
+| `npm run lint`             | Verifica reglas de ESLint sin modificar archivos                                  |
+| `npm run typecheck`        | Comprueba tipos del frontend y backend                                            |
+| `npm run format:check`     | Verifica el formato sin modificar archivos                                        |
+| `npm run format`           | Aplica el formato de Prettier                                                     |
+| `npm run build`            | Comprueba tipos y compila ambos proyectos                                         |
+| `npm run test:persistence` | Verifica migraciones, restricciones, seed y persistencia                          |
+| `npm run test:api`         | Verifica las cuatro operaciones, validaciones, errores y CORS por HTTP            |
+| `npm run docs:validate`    | Valida la especificación OpenAPI y sus referencias                                |
+| `npm run test:docs`        | Comprueba los ejemplos y esquemas de la documentación                             |
+| `npm test`                 | Ejecuta todas las pruebas del backend                                             |
+| `npm run check`            | Ejecuta lint, formato, validación OpenAPI, tipos, compilación y todas las pruebas |
 
 Las pruebas usan una base temporal aislada bajo `backend/.test-data`, que se elimina
 al finalizar. No utilizan ni modifican `dev.db`. Verifican la instalación desde un archivo
@@ -402,7 +465,7 @@ frontend/
   vite.config.ts      Servidor y compilación
 backend/
   src/
-    config/           Lectura de entorno y ruta compartida de la base
+    config/           Entorno, ruta compartida de la base y carga de OpenAPI
     errors/           Error HTTP con código, mensaje y campos opcionales
     middlewares/      Validación del cuerpo, rutas inexistentes y errores
     modules/tasks/
@@ -414,7 +477,7 @@ backend/
       task.schema.ts      Validaciones Zod y tipo de entrada
     lib/prisma.ts     Cliente Prisma de la aplicación
     generated/prisma/ Cliente generado localmente
-    app.ts            Construcción de Express, CORS, rutas y middlewares
+    app.ts            Express, CORS, rutas, Swagger UI y middlewares
     server.ts         Inicio y cierre del servidor
   prisma/
     schema.prisma     Modelo de tareas y estados
@@ -422,6 +485,10 @@ backend/
     ensure-database.ts Preparación del archivo SQLite
     seed.ts           Datos de ejemplo opcionales
   tests/              Pruebas de persistencia e integración de la API
+    helpers/openapi.ts Validación del contrato en las pruebas HTTP
+    openapi.test.ts    Validación de esquemas y ejemplos OpenAPI
+  docs/openapi.yaml   Contrato explícito de la API
+  scripts/validate-openapi.ts Verificación de la especificación
   prisma.config.ts    Configuración de la CLI y las migraciones
 eslint.config.js      Reglas de JavaScript, TypeScript y React
 tsconfig.base.json    Opciones compartidas de TypeScript
@@ -444,7 +511,7 @@ indirectas de la CLI, con versiones corregidas de sus avisos de seguridad. No im
 el uso de MySQL por la aplicación. La generación, las migraciones y las pruebas verifican
 la compatibilidad de esos ajustes.
 
-## Commit y push manuales de la parte 4
+## Commit y push manuales de la parte 5
 
 Los commits y push los realiza el candidato. Git ya está inicializado; no es necesario
 volver a ejecutar `git init`. Antes de publicar:
@@ -453,9 +520,9 @@ volver a ejecutar `git init`. Antes de publicar:
 npm run check
 git status
 git diff
-git add README.md backend
+git add README.md package.json package-lock.json backend
 git diff --cached
-git commit -m "feat: implementar edición y eliminación de tareas"
+git commit -m "docs: documentar la API con OpenAPI y Swagger UI"
 git push
 ```
 

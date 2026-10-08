@@ -7,6 +7,8 @@ import request from 'supertest';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PrismaClient } from '../src/generated/prisma/client.js';
 import type { taskRepository as TaskRepository } from '../src/modules/tasks/task.repository.js';
+import { openApiDocument } from '../src/config/openapi.js';
+import { expectDocumentedResponse } from './helpers/openapi.js';
 
 const backendDirectory = fileURLToPath(new URL('../', import.meta.url));
 const testRoot = join(backendDirectory, '.test-data');
@@ -66,10 +68,12 @@ afterAll(async () => {
 describe('Listado y creación de tareas por HTTP', () => {
   it('devuelve una lista vacía con 200 y conserva el endpoint de salud', async () => {
     const response = await request(app).get('/api/tasks').expect(200);
+    await expectDocumentedResponse(response, 'get', '/tasks');
     expect(response.headers['content-type']).toMatch(/application\/json/);
     expect(response.headers['x-powered-by']).toBeUndefined();
     expect(response.body).toEqual([]);
     const health = await request(app).get('/api/health').expect(200);
+    await expectDocumentedResponse(health, 'get', '/health');
     expect(health.body).toEqual({ status: 'ok' });
   });
 
@@ -80,6 +84,7 @@ describe('Listado y creación de tareas por HTTP', () => {
         .post('/api/tasks')
         .send({ ...validTask, status })
         .expect(201);
+      await expectDocumentedResponse(response, 'post', '/tasks');
       expect(response.body).toEqual({
         ...validTask,
         status,
@@ -221,6 +226,7 @@ describe('Validaciones y errores de la API', () => {
       .send(JSON.stringify(body))
       .set('Content-Type', 'application/json')
       .expect(400);
+    await expectDocumentedResponse(response, 'post', '/tasks');
     expect(response.body.error).toMatchObject({
       code: 'VALIDATION_ERROR',
       message: 'Revisa los campos enviados.',
@@ -250,6 +256,7 @@ describe('Validaciones y errores de la API', () => {
       .set('Content-Type', 'application/json')
       .send('{"title":')
       .expect(400);
+    await expectDocumentedResponse(response, 'post', '/tasks');
     expect(response.body).toEqual({
       error: {
         code: 'INVALID_JSON',
@@ -264,6 +271,7 @@ describe('Validaciones y errores de la API', () => {
       .post('/api/tasks')
       .send({ ...validTask, description: 'a'.repeat(17 * 1024) })
       .expect(413);
+    await expectDocumentedResponse(response, 'post', '/tasks');
     expect(response.body.error.code).toBe('PAYLOAD_TOO_LARGE');
     expect(await prisma.task.count()).toBe(0);
   });
@@ -274,6 +282,7 @@ describe('Validaciones y errores de la API', () => {
       .set('Content-Type', 'application/json; charset=iso-8859-1')
       .send(JSON.stringify(validTask))
       .expect(415);
+    await expectDocumentedResponse(response, 'post', '/tasks');
     expect(response.body.error.code).toBe('UNSUPPORTED_ENCODING');
     expect(await prisma.task.count()).toBe(0);
   });
@@ -298,6 +307,7 @@ describe('Validaciones y errores de la API', () => {
         operation === 'list'
           ? await request(app).get('/api/tasks').expect(500)
           : await request(app).post('/api/tasks').send(validTask).expect(500);
+      await expectDocumentedResponse(response, operation === 'list' ? 'get' : 'post', '/tasks');
       expect(response.body).toEqual({
         error: {
           code: 'INTERNAL_ERROR',
@@ -339,6 +349,7 @@ describe('Edición de tareas por HTTP', () => {
         .put(`/api/tasks/${original.id}`)
         .send({ ...validUpdate, status })
         .expect(200);
+      await expectDocumentedResponse(response, 'put', '/tasks/{id}');
 
       expect(response.body).toEqual({
         ...validUpdate,
@@ -381,6 +392,7 @@ describe('Edición de tareas por HTTP', () => {
       .put(`/api/tasks/${original.id}`)
       .send({ ...validUpdate, description })
       .expect(200);
+    await expectDocumentedResponse(response, 'put', '/tasks/{id}');
     expect(response.body.description).toBeNull();
     expect(
       (await prisma.task.findUniqueOrThrow({ where: { id: original.id } })).description,
@@ -415,6 +427,7 @@ describe('Edición de tareas por HTTP', () => {
         .set('Content-Type', 'application/json')
         .send(JSON.stringify(updateBody))
         .expect(400);
+      await expectDocumentedResponse(response, 'put', '/tasks/{id}');
       expect(response.body.error).toMatchObject({
         code: 'VALIDATION_ERROR',
         fields: { [field]: expect.arrayContaining([expect.any(String)]) },
@@ -483,6 +496,7 @@ describe('Eliminación de tareas por HTTP', () => {
     const removed = await existingTask();
     const remaining = await existingTask();
     const response = await request(app).delete(`/api/tasks/${removed.id}`).expect(204);
+    await expectDocumentedResponse(response, 'delete', '/tasks/{id}');
     expect(response.text).toBe('');
     expect(response.headers['content-type']).toBeUndefined();
     expect(await prisma.task.findUnique({ where: { id: removed.id } })).toBeNull();
@@ -555,6 +569,7 @@ describe.each(['put', 'delete'] as const)('Identificadores y errores en %s', (me
       const operation = method === 'put' ? 'update' : 'delete';
       const databaseCall = vi.spyOn(repository, operation);
       const response = await request(app)[method](`/api/tasks/${id}`).send(validUpdate).expect(400);
+      await expectDocumentedResponse(response, method, '/tasks/{id}');
       expect(response.body.error).toMatchObject({
         code: 'VALIDATION_ERROR',
         fields: { id: [expect.any(String)] },
@@ -566,6 +581,7 @@ describe.each(['put', 'delete'] as const)('Identificadores y errores en %s', (me
 
   it('rechaza una codificación de URL inválida con un error JSON de 400', async () => {
     const response = await request(app)[method]('/api/tasks/%ZZ').send(validUpdate).expect(400);
+    await expectDocumentedResponse(response, method, '/tasks/{id}');
     expect(response.body).toEqual({
       error: {
         code: 'INVALID_PATH',
@@ -580,6 +596,7 @@ describe.each(['put', 'delete'] as const)('Identificadores y errores en %s', (me
       [method]('/api/tasks/2147483647')
       .send(validUpdate)
       .expect(404);
+    await expectDocumentedResponse(response, method, '/tasks/{id}');
     expect(response.body).toEqual({
       error: {
         code: 'TASK_NOT_FOUND',
@@ -600,6 +617,7 @@ describe.each(['put', 'delete'] as const)('Identificadores y errores en %s', (me
       [method](`/api/tasks/${original.id}`)
       .send(validUpdate)
       .expect(500);
+    await expectDocumentedResponse(response, method, '/tasks/{id}');
     expect(response.body).toEqual({
       error: {
         code: 'INTERNAL_ERROR',
@@ -609,6 +627,44 @@ describe.each(['put', 'delete'] as const)('Identificadores y errores en %s', (me
     expect(response.text).not.toContain(failure.message);
     expect(log).toHaveBeenCalledWith('Error inesperado al procesar la solicitud.', failure);
     expect(await prisma.task.findUnique({ where: { id: original.id } })).toEqual(original);
+  });
+});
+
+describe('Documentación servida por la API', () => {
+  it('publica como JSON el mismo contrato del archivo OpenAPI', async () => {
+    const response = await request(app).get('/api/openapi.json').expect(200);
+    expect(response.headers['content-type']).toMatch(/application\/json/);
+    expect(response.body).toEqual(openApiDocument);
+  });
+
+  it('redirige a la URL con barra final y carga la página de Swagger UI', async () => {
+    const redirect = await request(app).get('/api/docs').expect(301);
+    expect(redirect.headers.location).toBe('/api/docs/');
+    const page = await request(app).get('/api/docs/').expect(200);
+    expect(page.headers['content-type']).toMatch(/text\/html/);
+    expect(page.text).toContain('Documentación de la API de tareas');
+    expect(page.text).toContain('swagger-ui-init.js');
+  });
+
+  it.each(['swagger-ui.css', 'swagger-ui-bundle.js', 'swagger-ui-standalone-preset.js'])(
+    'sirve el recurso local %s de Swagger',
+    async (asset) => {
+      const response = await request(app).get(`/api/docs/${asset}`).expect(200);
+      expect(response.headers['content-type']).toMatch(
+        asset.endsWith('.css') ? /text\/css/ : /javascript/,
+      );
+      expect(response.text.length).toBeGreaterThan(0);
+    },
+  );
+
+  it('configura Swagger para cargar el contrato local y ejecutar las cuatro operaciones', async () => {
+    const response = await request(app).get('/api/docs/swagger-ui-init.js').expect(200);
+    expect(response.headers['content-type']).toMatch(/javascript/);
+    expect(response.text).toContain('"url": "/api/openapi.json"');
+    expect(response.text).toContain('"validatorUrl": null');
+    for (const method of ['get', 'post', 'put', 'delete']) {
+      expect(response.text).toContain(`"${method}"`);
+    }
   });
 });
 

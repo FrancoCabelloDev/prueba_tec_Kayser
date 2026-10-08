@@ -1,0 +1,437 @@
+openapi: 3.0.3
+info:
+  title: API de gestión de tareas de TI
+  version: 0.1.0
+  description: |
+    API para listar, crear, editar y eliminar tareas con persistencia en SQLite.
+    No requiere autenticación. Los estados son PENDIENTE, EN_PROCESO y COMPLETADO.
+    Se recortan los espacios al inicio y al final de los campos de texto antes de
+    validar sus longitudes. La descripción vacía se guarda como null.
+    Los cuerpos JSON tienen un límite de 16 KB. PUT recibe los cuatro campos
+    editables completos. La eliminación es definitiva.
+servers:
+  - url: /api
+    description: API en el mismo origen y puerto que Swagger UI
+security: []
+tags:
+  - name: Tareas
+    description: Operaciones de gestión de tareas
+  - name: Salud
+    description: Comprobación básica del servidor
+paths:
+  /health:
+    get:
+      tags: [Salud]
+      operationId: getHealth
+      summary: Comprobar la disponibilidad del servidor
+      description: El backend verifica la base de datos antes de empezar a escuchar.
+      responses:
+        '200':
+          description: El servidor está disponible
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+              example:
+                status: ok
+  /tasks:
+    get:
+      tags: [Tareas]
+      operationId: listTasks
+      summary: Listar todas las tareas
+      description: |
+        Ordena por createdAt descendente y desempata por id descendente.
+        Devuelve un arreglo vacío si no hay tareas. No utiliza paginación.
+      responses:
+        '200':
+          description: Listado de tareas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+              examples:
+                conTareas:
+                  summary: Listado con una tarea
+                  value:
+                    - id: 1
+                      title: Revisar servidor de pruebas
+                      description: Comprobar los servicios del equipo.
+                      responsible: Ana Pérez
+                      status: PENDIENTE
+                      createdAt: '2026-10-08T12:00:00.000Z'
+                      updatedAt: '2026-10-08T12:00:00.000Z'
+                vacio:
+                  summary: Sin tareas registradas
+                  value: []
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Tareas]
+      operationId: createTask
+      summary: Crear una tarea
+      description: |
+        Exige título, responsable y estado. La descripción es opcional.
+        Se permiten títulos repetidos. El servidor genera id y las fechas.
+        Rechaza propiedades adicionales, incluidos id, createdAt y updatedAt.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTask'
+            examples:
+              pendiente:
+                summary: Tarea pendiente con descripción
+                value:
+                  title: Revisar servidor de pruebas
+                  description: Comprobar los servicios del equipo.
+                  responsible: Ana Pérez
+                  status: PENDIENTE
+              enProceso:
+                summary: Tarea en proceso sin descripción
+                value:
+                  title: Actualizar dependencias
+                  responsible: Luis
+                  status: EN_PROCESO
+              completada:
+                summary: Tarea completada con descripción nula
+                value:
+                  title: Verificar respaldo
+                  description: null
+                  responsible: Ana Pérez
+                  status: COMPLETADO
+      responses:
+        '201':
+          description: Tarea creada y persistida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+              examples:
+                creada:
+                  $ref: '#/components/examples/CreatedTask'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedEncoding'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /tasks/{id}:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    put:
+      tags: [Tareas]
+      operationId: updateTask
+      summary: Editar una tarea
+      description: |
+        Exige los cuatro campos editables completos. Para borrar la descripción,
+        envía null o texto vacío; omitirla devuelve 400. Puede cambiar entre
+        cualquiera de los tres estados. Conserva id y createdAt y actualiza updatedAt.
+        Rechaza propiedades adicionales, incluidos id, createdAt y updatedAt.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTask'
+            examples:
+              editar:
+                summary: Actualizar los cuatro campos
+                value:
+                  title: Actualizar servidor de pruebas
+                  description: Instalar las actualizaciones aprobadas.
+                  responsible: Luis
+                  status: EN_PROCESO
+              quitarDescripcion:
+                summary: Completar la tarea y quitar su descripción
+                value:
+                  title: Revisión del servidor finalizada
+                  description: null
+                  responsible: Ana Pérez
+                  status: COMPLETADO
+      responses:
+        '200':
+          description: Tarea actualizada y persistida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+              example:
+                id: 1
+                title: Actualizar servidor de pruebas
+                description: Instalar las actualizaciones aprobadas.
+                responsible: Luis
+                status: EN_PROCESO
+                createdAt: '2026-10-08T12:00:00.000Z'
+                updatedAt: '2026-10-08T13:00:00.000Z'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '404':
+          $ref: '#/components/responses/TaskNotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedEncoding'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Tareas]
+      operationId: deleteTask
+      summary: Eliminar una tarea
+      description: |
+        Elimina definitivamente la tarea indicada y no requiere un cuerpo.
+        Si la tarea no existe o ya fue eliminada, devuelve 404.
+        Las demás tareas se conservan. El éxito no devuelve JSON ni contenido.
+      responses:
+        '204':
+          description: Tarea eliminada; respuesta sin cuerpo
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '404':
+          $ref: '#/components/responses/TaskNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  parameters:
+    TaskId:
+      name: id
+      in: path
+      required: true
+      description: |
+        Identificador decimal entre 1 y 2147483647. La URL debe usar dígitos
+        sin ceros iniciales, signos, espacios, decimales ni notación exponencial.
+        Un identificador inválido devuelve 400; uno válido inexistente devuelve 404.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 2147483647
+      example: 1
+  schemas:
+    TaskTitle:
+      type: string
+      minLength: 1
+      maxLength: 150
+      pattern: '\S'
+      description: Título obligatorio; las longitudes se validan después de recortar espacios.
+      example: Revisar servidor de pruebas
+    TaskDescription:
+      type: string
+      nullable: true
+      maxLength: 2000
+      description: |
+        Detalle opcional de la tarea. Se recortan espacios y se valida la longitud.
+        El texto vacío se guarda como null. Puede omitirse al crear, pero debe
+        enviarse como texto o null al editar.
+      example: Comprobar los servicios del equipo.
+    TaskResponsible:
+      type: string
+      minLength: 1
+      maxLength: 100
+      pattern: '\S'
+      description: Responsable obligatorio; las longitudes se validan después de recortar espacios.
+      example: Ana Pérez
+    TaskStatus:
+      type: string
+      enum: [PENDIENTE, EN_PROCESO, COMPLETADO]
+      description: |
+        Valor interno del estado. Los textos de presentación son Pendiente,
+        En Proceso y Completado. La API exige el valor interno y no aplica un estado por defecto.
+      example: PENDIENTE
+    CreateTask:
+      type: object
+      additionalProperties: false
+      required: [title, responsible, status]
+      properties:
+        title:
+          $ref: '#/components/schemas/TaskTitle'
+        description:
+          $ref: '#/components/schemas/TaskDescription'
+        responsible:
+          $ref: '#/components/schemas/TaskResponsible'
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+    UpdateTask:
+      type: object
+      additionalProperties: false
+      required: [title, description, responsible, status]
+      properties:
+        title:
+          $ref: '#/components/schemas/TaskTitle'
+        description:
+          $ref: '#/components/schemas/TaskDescription'
+        responsible:
+          $ref: '#/components/schemas/TaskResponsible'
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+    Task:
+      type: object
+      additionalProperties: false
+      required: [id, title, description, responsible, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          readOnly: true
+          example: 1
+        title:
+          $ref: '#/components/schemas/TaskTitle'
+        description:
+          $ref: '#/components/schemas/TaskDescription'
+        responsible:
+          $ref: '#/components/schemas/TaskResponsible'
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Fecha de creación generada por el servidor, en ISO 8601.
+          example: '2026-10-08T12:00:00.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Fecha de última modificación actualizada por Prisma, en ISO 8601.
+          example: '2026-10-08T12:00:00.000Z'
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - VALIDATION_ERROR
+                - INVALID_JSON
+                - INVALID_PATH
+                - TASK_NOT_FOUND
+                - ROUTE_NOT_FOUND
+                - PAYLOAD_TOO_LARGE
+                - UNSUPPORTED_ENCODING
+                - INTERNAL_ERROR
+            message:
+              type: string
+              minLength: 1
+              description: Mensaje público en español; no incluye SQL ni trazas internas.
+            fields:
+              type: object
+              description: |
+                Mensajes por campo para VALIDATION_ERROR. id identifica un problema
+                del parámetro de ruta y body un problema del objeto completo o de campos adicionales.
+              additionalProperties:
+                type: array
+                minItems: 1
+                items:
+                  type: string
+                  minLength: 1
+  examples:
+    CreatedTask:
+      summary: Tarea creada con identificador y fechas del servidor
+      value:
+        id: 1
+        title: Revisar servidor de pruebas
+        description: Comprobar los servicios del equipo.
+        responsible: Ana Pérez
+        status: PENDIENTE
+        createdAt: '2026-10-08T12:00:00.000Z'
+        updatedAt: '2026-10-08T12:00:00.000Z'
+  responses:
+    InvalidRequest:
+      description: Identificador o datos inválidos, campos adicionales, JSON mal formado o URL inválida
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          examples:
+            campoObligatorio:
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Revisa los campos enviados.
+                  fields:
+                    title: [El título es obligatorio.]
+            identificadorInvalido:
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Revisa los campos enviados.
+                  fields:
+                    id:
+                      [
+                        El identificador debe ser un entero positivo sin ceros iniciales ni espacios.,
+                      ]
+            descripcionAusenteAlEditar:
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Revisa los campos enviados.
+                  fields:
+                    description: [Envía la descripción como texto o null al editar la tarea.]
+            jsonInvalido:
+              value:
+                error:
+                  code: INVALID_JSON
+                  message: El cuerpo de la solicitud debe ser JSON válido.
+            rutaInvalida:
+              value:
+                error:
+                  code: INVALID_PATH
+                  message: La ruta contiene una codificación inválida.
+    TaskNotFound:
+      description: La tarea no existe o ya fue eliminada
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            error:
+              code: TASK_NOT_FOUND
+              message: La tarea solicitada no existe.
+    PayloadTooLarge:
+      description: El cuerpo de la solicitud supera el límite de 16 KB
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            error:
+              code: PAYLOAD_TOO_LARGE
+              message: La solicitud supera el límite de 16 KB.
+    UnsupportedEncoding:
+      description: El charset o la codificación de contenido no está soportado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            error:
+              code: UNSUPPORTED_ENCODING
+              message: La codificación de la solicitud no está permitida.
+    InternalError:
+      description: Error inesperado; los detalles técnicos se registran solo en el servidor
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            error:
+              code: INTERNAL_ERROR
+              message: No se pudo procesar la solicitud.

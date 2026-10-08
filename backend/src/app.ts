@@ -1,5 +1,7 @@
 import cors from 'cors';
 import express from 'express';
+import swaggerUi from 'swagger-ui-express';
+import { openApiDocument } from './config/openapi.js';
 import { errorHandler } from './middlewares/error-handler.js';
 import { routeNotFound } from './middlewares/route-not-found.js';
 import { taskRouter } from './modules/tasks/task.routes.js';
@@ -22,6 +24,21 @@ export function createApp(frontendOrigin: string) {
   });
 
   app.use('/api/tasks', taskRouter);
+  app.get('/api/openapi.json', (_request, response) => {
+    response.status(200).json(openApiDocument);
+  });
+  app.use(
+    '/api/docs',
+    swaggerUi.serve,
+    swaggerUi.setup(undefined, {
+      customSiteTitle: 'Documentación de la API de tareas',
+      swaggerOptions: {
+        url: '/api/openapi.json',
+        validatorUrl: null,
+        supportedSubmitMethods: ['get', 'post', 'put', 'delete'],
+      },
+    }),
+  );
   app.use(routeNotFound);
   app.use(errorHandler);
 
