@@ -11,8 +11,10 @@
     "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort"
   },
   "dependencies": {
+    "@hookform/resolvers": "5.9.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "react-hook-form": "7.89.0",
     "zod": "4.6.5"
   },
   "devDependencies": {

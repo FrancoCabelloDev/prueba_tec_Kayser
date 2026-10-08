@@ -1,8 +1,8 @@
 import { taskStatusLabels, type Task } from '../tasks.types';
 
-type TaskCardProps = { task: Task };
+type TaskCardProps = { task: Task; onEdit: (task: Task) => void; onDelete: (task: Task) => void };
 
-export function TaskCard({ task }: TaskCardProps) {
+export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
   return (
     <li className="task-card">
       <div className="task-card-heading">
@@ -22,18 +22,16 @@ export function TaskCard({ task }: TaskCardProps) {
         <button
           type="button"
           className="button button-secondary"
-          disabled
+          onClick={() => onEdit(task)}
           aria-label={`Editar tarea: ${task.title}`}
-          aria-describedby="management-note"
         >
           Editar
         </button>
         <button
           type="button"
           className="button button-danger"
-          disabled
+          onClick={() => onDelete(task)}
           aria-label={`Eliminar tarea: ${task.title}`}
-          aria-describedby="management-note"
         >
           Eliminar
         </button>

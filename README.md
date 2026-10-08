@@ -1,24 +1,23 @@
 # Gestión de tareas del equipo de TI
 
 Aplicación con React y Node.js para registrar, consultar, editar y eliminar tareas.
-Cada tarea tendrá título, descripción, responsable y uno de estos estados: Pendiente,
+Cada tarea contiene título, descripción, responsable y uno de estos estados: Pendiente,
 En Proceso o Completado.
 
 ## Avance actual
 
-Las partes 1, 2, 3, 4, 5 y 6 del plan están implementadas: frontend y backend con TypeScript,
+Las partes 1 a 7 del plan están implementadas: frontend y backend con TypeScript,
 npm workspaces, ESLint, Prettier, persistencia con Prisma y SQLite y una API para
-listar, crear, editar y eliminar tareas. El frontend consulta y muestra las tareas de la API. El backend verifica
+listar, crear, editar y eliminar tareas. El frontend permite completar las cuatro operaciones. El backend verifica
 la conexión y las tablas al arrancar y ofrece un endpoint de salud.
 
 La API incluye validaciones con Zod, CORS para el origen del frontend, manejo centralizado
 de errores y pruebas de integración sobre una base temporal. La base incluye una
 migración versionada, restricciones de datos, un seed opcional y pruebas de persistencia.
 La API está documentada con OpenAPI y Swagger UI. El listado de React incluye estados
-de carga, lista vacía y error, además de actualización y reintento. Los botones Nueva tarea,
-Editar, Eliminar y Crear primera tarea están preparados y deshabilitados: los formularios
-y las operaciones desde la interfaz se conectarán en la parte 7. GitHub Actions corresponde
-a la parte 8.
+de carga, lista vacía y error, además de actualización y reintento. Un formulario reutilizable
+con React Hook Form y Zod permite crear y editar, y un diálogo identifica la tarea antes de
+confirmar su eliminación. GitHub Actions corresponde a la parte 8.
 
 ## Requisitos
 
@@ -137,8 +136,7 @@ cuando una tarea se modifica mediante el cliente.
 | `status`      | Obligatorio: `PENDIENTE`, `EN_PROCESO` o `COMPLETADO`  |
 
 Se permiten títulos repetidos. El estado no tiene valor por defecto en la base de datos;
-debe proporcionarse al crear una tarea. La selección inicial Pendiente se incorporará
-al formulario en su etapa correspondiente.
+debe proporcionarse al crear una tarea. El formulario de React selecciona Pendiente inicialmente.
 
 SQLite guarda los estados como texto. La migración agrega un `CHECK` para impedir
 estados inválidos incluso mediante SQL directo, además de restricciones de campos
@@ -196,7 +194,7 @@ y Completado. Una descripción nula se muestra como **Sin descripción**. Los te
 se ajustan a las tarjetas y las descripciones conservan los saltos de línea.
 
 - **Cargando:** anuncia la consulta y deshabilita Actualizar mientras está pendiente.
-- **Sin tareas:** explica que la lista está vacía y prepara el botón Crear primera tarea.
+- **Sin tareas:** explica que la lista está vacía y permite Crear primera tarea.
 - **Error:** muestra un mensaje comprensible y ofrece Reintentar.
 - **Con tareas:** muestra las tarjetas y el total; Actualizar vuelve a consultar la API.
 
@@ -223,6 +221,57 @@ accesibles, y los controles de actualización y reintento se pueden usar con tec
 Para probar el error, inicia frontend y backend en terminales separadas: el comando conjunto
 `npm run dev` detiene ambos cuando uno falla. No borres tu base para comprobar el estado vacío;
 puedes usar una base temporal distinta y aplicar sus migraciones.
+
+## Crear, editar y eliminar desde React (parte 7)
+
+**Nueva tarea** y **Crear primera tarea** abren el mismo formulario que utiliza **Editar**.
+Al crear, los textos empiezan vacíos y el estado es Pendiente. Al editar, se precargan
+los cuatro campos de la tarea seleccionada; una descripción nula se presenta como texto vacío.
+
+El formulario valida título y responsable obligatorios, incluso si contienen solo espacios,
+el estado seleccionado y los límites de 150, 100 y 2.000 caracteres respectivamente.
+Recorta los espacios iniciales y finales antes de comprobar las longitudes. Una descripción
+vacía se envía como `null`. Siempre se envían los cuatro campos editables; los identificadores
+y las fechas no se incluyen en el cuerpo de creación o edición.
+
+Los mensajes se muestran junto a cada campo con etiquetas visibles y referencias accesibles.
+Los errores por campo de la API también se presentan en el formulario, junto al mensaje
+general del servidor. Si el guardado falla, se conservan todos los valores para corregirlos
+o reintentar. Mientras la solicitud está pendiente, se bloquean los campos, el envío,
+Cancelar y el cierre con Escape para evitar duplicados o abandonar una operación en curso.
+
+**Cancelar** o **Escape** cierran un formulario sin enviar cambios cuando no hay una solicitud
+pendiente. **Eliminar** abre una confirmación con el título de la tarea y enfoca Cancelar.
+Solo **Eliminar tarea** envía la petición DELETE. Un error mantiene abierta la confirmación
+y conserva la tarjeta; una respuesta exitosa `204` se procesa sin intentar leer JSON.
+
+Los diálogos utilizan el elemento HTML `dialog` con `showModal()`: el navegador gestiona
+el foco y limita la interacción al diálogo abierto. Al cancelar, el foco vuelve al control
+que lo abrió; si ese control desapareció al actualizar el listado, vuelve a Nueva tarea.
+El formulario y la confirmación permiten usar Tab, Shift+Tab y los controles mediante teclado.
+
+Cada operación exitosa cierra el diálogo, anuncia el resultado y vuelve a consultar el listado.
+Si falla esa consulta posterior, se conserva el mensaje de éxito de la operación y aparece
+Reintentar para consultar otra vez, sin repetir la escritura que ya finalizó.
+
+### Comprobación manual del CRUD
+
+1. Inicia frontend y backend y pulsa **Nueva tarea**.
+2. Intenta crear con título y responsable vacíos, o solo con espacios, y comprueba los mensajes.
+3. Selecciona la opción vacía del estado y comprueba que también se rechaza.
+4. Completa los datos y pulsa **Crear tarea**; comprueba el éxito y la nueva tarjeta.
+5. Recarga la página para comprobar la persistencia.
+6. Pulsa **Editar**, revisa los valores precargados y cambia responsable y estado.
+   Borra la descripción, guarda y comprueba **Sin descripción** en la tarjeta.
+7. Abre de nuevo la edición, modifica un dato y pulsa **Cancelar**; comprueba que no se guardó.
+8. Pulsa **Eliminar**, verifica el título y cancela; la tarea debe permanecer.
+9. Abre de nuevo la confirmación y pulsa **Eliminar tarea**; comprueba el éxito y su desaparición.
+10. Para comprobar un error de guardado, inicia ambos servidores en terminales separadas,
+    completa una nueva tarea y detén solo el backend antes de enviar. Debe aparecer el error
+    y conservarse el formulario. Reinicia el backend y vuelve a enviar.
+11. Repite el recorrido con teclado y con una ventana estrecha.
+
+Estas operaciones modifican la base configurada. Utiliza una tarea de prueba propia para el recorrido.
 
 ## API disponible
 
@@ -345,7 +394,7 @@ Invoke-RestMethod -Uri "http://127.0.0.1:3000/api/tasks/$($createdTask.id)" -Met
 Invoke-RestMethod -Uri 'http://127.0.0.1:3000/api/tasks' -Method Get
 ```
 
-La confirmación visual antes de eliminar se implementará al conectar las acciones del frontend.
+El frontend muestra una confirmación con el título antes de enviar esta operación.
 
 ### Respuestas de error
 
@@ -451,26 +500,31 @@ responsabilidad de Zod y de las restricciones de la base.
 
 ## Comandos de calidad y compilación
 
-| Comando desde la raíz      | Función                                                                           |
-| -------------------------- | --------------------------------------------------------------------------------- |
-| `npm run lint`             | Verifica reglas de ESLint sin modificar archivos                                  |
-| `npm run typecheck`        | Comprueba tipos del frontend y backend                                            |
-| `npm run format:check`     | Verifica el formato sin modificar archivos                                        |
-| `npm run format`           | Aplica el formato de Prettier                                                     |
-| `npm run build`            | Comprueba tipos y compila ambos proyectos                                         |
-| `npm run test:persistence` | Verifica migraciones, restricciones, seed y persistencia                          |
-| `npm run test:api`         | Verifica las cuatro operaciones, validaciones, errores y CORS por HTTP            |
-| `npm run docs:validate`    | Valida la especificación OpenAPI y sus referencias                                |
-| `npm run test:docs`        | Comprueba los ejemplos y esquemas de la documentación                             |
-| `npm run test:frontend`    | Verifica carga, listado, vacío, errores, reintento y cancelación en React         |
-| `npm test`                 | Ejecuta todas las pruebas del frontend y backend                                  |
-| `npm run check`            | Ejecuta lint, formato, validación OpenAPI, tipos, compilación y todas las pruebas |
+| Comando desde la raíz      | Función                                                                            |
+| -------------------------- | ---------------------------------------------------------------------------------- |
+| `npm run lint`             | Verifica reglas de ESLint sin modificar archivos                                   |
+| `npm run typecheck`        | Comprueba tipos del frontend y backend                                             |
+| `npm run format:check`     | Verifica el formato sin modificar archivos                                         |
+| `npm run format`           | Aplica el formato de Prettier                                                      |
+| `npm run build`            | Comprueba tipos y compila ambos proyectos                                          |
+| `npm run test:persistence` | Verifica migraciones, restricciones, seed y persistencia                           |
+| `npm run test:api`         | Verifica las cuatro operaciones, validaciones, errores y CORS por HTTP             |
+| `npm run docs:validate`    | Valida la especificación OpenAPI y sus referencias                                 |
+| `npm run test:docs`        | Comprueba los ejemplos y esquemas de la documentación                              |
+| `npm run test:frontend`    | Verifica listado, CRUD, validaciones, confirmación, errores y cancelación en React |
+| `npm test`                 | Ejecuta todas las pruebas del frontend y backend                                   |
+| `npm run check`            | Ejecuta lint, formato, validación OpenAPI, tipos, compilación y todas las pruebas  |
 
 Las pruebas del frontend usan Vitest, jsdom y React Testing Library, con respuestas HTTP
 simuladas para comprobar fallos y solicitudes pendientes de forma reproducible. Verifican
 los cuatro campos, los estados, la actualización, la recuperación de errores, respuestas
-incompatibles y la cancelación que evita mostrar respuestas antiguas. No requieren servidores
-en ejecución. Puedes ejecutarlas con `npm run test:frontend`.
+incompatibles y la cancelación que evita mostrar respuestas antiguas. También cubren creación,
+edición precargada, campos obligatorios y longitudes, recorte de textos, descripción nula,
+conservación de valores tras un error, validaciones del servidor, confirmación de eliminación,
+cancelación, bloqueo durante solicitudes y recuperación de un error al recargar después de guardar.
+jsdom utiliza una adaptación mínima de `showModal` y `close`; el foco modal y el teclado
+se comprueban también en el navegador real. No requieren servidores en ejecución.
+Puedes ejecutarlas con `npm run test:frontend`.
 
 Las pruebas del backend usan una base temporal aislada bajo `backend/.test-data`, que se elimina
 al finalizar. No utilizan ni modifican `dev.db`. Verifican la instalación desde un archivo
@@ -505,18 +559,19 @@ y reinicia el backend. Al volver al servidor de desarrollo, restaura el origen d
 frontend/
   src/
     config/           Validación de variables públicas
+    components/Modal.tsx Diálogo nativo y restauración del foco
     features/tasks/
-      tasks.api.ts    Consulta HTTP centralizada
-      tasks.schema.ts Validación de respuestas con Zod
+      tasks.api.ts    CRUD HTTP centralizado y errores de la API
+      tasks.schema.ts Validación de respuestas y formulario con Zod
       tasks.types.ts  Tipos y etiquetas de los estados
       hooks/useTasks.ts Estados, reintento y cancelación
-      components/    Tarjetas y listado con estado vacío
-    App.tsx           Pantalla del listado y estados de consulta
+      components/    Tarjetas, listado, formulario y confirmación de eliminación
+    App.tsx           Listado, selección de acciones y mensajes de éxito
     main.tsx          Entrada de React
     styles.css        Estilos básicos
   vite.config.ts      Servidor y compilación
   vitest.config.ts    Entorno de pruebas de React
-  tests/              Pruebas del listado y del cliente HTTP
+  tests/              Pruebas del listado, formularios, eliminación y cliente HTTP
 backend/
   src/
     config/           Entorno, ruta compartida de la base y carga de OpenAPI
@@ -565,7 +620,7 @@ indirectas de la CLI, con versiones corregidas de sus avisos de seguridad. No im
 el uso de MySQL por la aplicación. La generación, las migraciones y las pruebas verifican
 la compatibilidad de esos ajustes.
 
-## Commit y push manuales de la parte 6
+## Commit y push manuales de la parte 7
 
 Los commits y push los realiza el candidato. Git ya está inicializado; no es necesario
 volver a ejecutar `git init`. Antes de publicar:
@@ -574,9 +629,9 @@ volver a ejecutar `git init`. Antes de publicar:
 npm run check
 git status
 git diff
-git add README.md package.json package-lock.json frontend
+git add README.md package-lock.json frontend
 git diff --cached
-git commit -m "feat: mostrar tareas con estados de carga y error"
+git commit -m "feat: crear y editar tareas con confirmación de eliminación"
 git push
 ```
 

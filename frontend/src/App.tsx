@@ -1,8 +1,42 @@
+import { useRef, useState } from 'react';
+import { DeleteTaskDialog } from './features/tasks/components/DeleteTaskDialog';
+import { TaskForm } from './features/tasks/components/TaskForm';
 import { TaskList } from './features/tasks/components/TaskList';
 import { useTasks } from './features/tasks/hooks/useTasks';
+import { createTask, deleteTask, updateTask } from './features/tasks/tasks.api';
+import type { Task, TaskInput } from './features/tasks/tasks.types';
+
+type TaskAction = { kind: 'create' } | { kind: 'edit' | 'delete'; task: Task };
 
 export default function App() {
   const { state, reload } = useTasks();
+  const [action, setAction] = useState<TaskAction | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const newTaskButtonRef = useRef<HTMLButtonElement>(null);
+
+  function openAction(nextAction: TaskAction) {
+    setNotice(null);
+    setAction(nextAction);
+  }
+  function complete(message: string) {
+    setAction(null);
+    setNotice(message);
+    reload();
+  }
+  async function save(input: TaskInput) {
+    if (action?.kind === 'create') {
+      await createTask(input);
+      complete('La tarea se creó correctamente.');
+    } else if (action?.kind === 'edit') {
+      await updateTask(action.task.id, input);
+      complete('Los cambios se guardaron correctamente.');
+    }
+  }
+  async function remove() {
+    if (action?.kind !== 'delete') return;
+    await deleteTask(action.task.id);
+    complete('La tarea se eliminó correctamente.');
+  }
   return (
     <main className="workspace">
       <header className="workspace-header">
@@ -14,12 +48,18 @@ export default function App() {
         <button
           type="button"
           className="button button-primary"
-          disabled
-          aria-describedby="management-note"
+          ref={newTaskButtonRef}
+          onClick={() => openAction({ kind: 'create' })}
         >
           Nueva tarea
         </button>
       </header>
+
+      {notice && (
+        <p className="success-message" role="status">
+          {notice}
+        </p>
+      )}
 
       <section className="workspace-content" aria-labelledby="workspace-title">
         <div className="list-heading">
@@ -54,11 +94,31 @@ export default function App() {
             </button>
           </div>
         )}
-        {state.status === 'success' && <TaskList tasks={state.tasks} />}
-        <p id="management-note" className="management-note">
-          Las acciones de crear, editar y eliminar estarán disponibles próximamente.
-        </p>
+        {state.status === 'success' && (
+          <TaskList
+            tasks={state.tasks}
+            onCreate={() => openAction({ kind: 'create' })}
+            onEdit={(task) => openAction({ kind: 'edit', task })}
+            onDelete={(task) => openAction({ kind: 'delete', task })}
+          />
+        )}
       </section>
+      {action && action.kind !== 'delete' && (
+        <TaskForm
+          task={action.kind === 'edit' ? action.task : null}
+          onSave={save}
+          onCancel={() => setAction(null)}
+          fallbackFocusRef={newTaskButtonRef}
+        />
+      )}
+      {action?.kind === 'delete' && (
+        <DeleteTaskDialog
+          task={action.task}
+          onConfirm={remove}
+          onCancel={() => setAction(null)}
+          fallbackFocusRef={newTaskButtonRef}
+        />
+      )}
     </main>
   );
 }

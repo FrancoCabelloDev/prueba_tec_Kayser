@@ -13,3 +13,24 @@ export const taskSchema = z.object({
 });
 
 export const taskListSchema = z.array(taskSchema);
+
+export const taskFormSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, 'El título es obligatorio.')
+    .max(150, 'El título no puede superar los 150 caracteres.'),
+  description: z
+    .string()
+    .trim()
+    .max(2000, 'La descripción no puede superar los 2.000 caracteres.')
+    .transform((value) => value || null),
+  responsible: z
+    .string()
+    .trim()
+    .min(1, 'El responsable es obligatorio.')
+    .max(100, 'El responsable no puede superar los 100 caracteres.'),
+  status: z.enum(['PENDIENTE', 'EN_PROCESO', 'COMPLETADO'], {
+    error: 'El estado es obligatorio y debe ser válido.',
+  }),
+});

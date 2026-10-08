@@ -43,23 +43,23 @@ describe('Consulta de tareas', () => {
     expect(within(cards[1]!).getByText('Sin descripción')).toBeInTheDocument();
     expect(within(cards[2]!).getByText('Completado')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('3 tareas');
-    expect(screen.getByRole('button', { name: 'Nueva tarea' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Nueva tarea' })).toBeEnabled();
     expect(
       within(cards[0]!).getByRole('button', { name: `Editar tarea: ${tasks[0]!.title}` }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     expect(
       within(cards[0]!).getByRole('button', { name: `Eliminar tarea: ${tasks[0]!.title}` }),
-    ).toBeDisabled();
+    ).toBeEnabled();
   });
 
-  it('explica la lista vacía y prepara la opción de crear una tarea', async () => {
+  it('explica la lista vacía y ofrece crear una tarea', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse([]));
     render(<App />);
     expect(
       await screen.findByRole('heading', { name: 'No hay tareas registradas' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('0 tareas');
-    expect(screen.getByRole('button', { name: 'Crear primera tarea' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Crear primera tarea' })).toBeEnabled();
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
   });
 

@@ -202,10 +202,105 @@ h3 {
   background: #fff4f4;
   color: #81272e;
 }
-.management-note {
-  margin-top: 1.5rem;
+.success-message {
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #a9d5b9;
+  border-radius: 0.5rem;
+  background: #e1f3e7;
+  color: #226442;
+}
+.button-danger-solid {
+  color: #fff;
+  background: #a52c35;
+}
+.button-danger-solid:hover:not(:disabled) {
+  background: #87232b;
+}
+.button-danger:hover:not(:disabled) {
+  background: #fff4f4;
+}
+.modal {
+  width: min(560px, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  padding: 1.5rem;
+  border: 1px solid #bdccd7;
+  border-radius: 0.75rem;
+  color: #172b3a;
+}
+.modal::backdrop {
+  background: rgb(15 30 45 / 55%);
+}
+.form-introduction,
+.delete-description {
+  margin: 0.75rem 0 1.25rem;
+  overflow-wrap: anywhere;
+}
+.form-introduction {
   color: #526473;
+  font-size: 0.9rem;
+}
+.form-fields {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+.form-field label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+.form-field input,
+.form-field textarea,
+.form-field select {
+  font: inherit;
+  display: block;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #9caebb;
+  border-radius: 0.35rem;
+  color: #172b3a;
+  background: #fff;
+}
+.form-field textarea {
+  resize: vertical;
+}
+.form-field :is(input, textarea, select):focus-visible {
+  outline: 3px solid #1671bd;
+  outline-offset: 2px;
+}
+.form-field [aria-invalid='true'] {
+  border-color: #a52c35;
+}
+.field-hint {
+  color: #526473;
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+.field-error {
+  color: #9e2830;
   font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+.field-error:empty {
+  display: none;
+}
+.form-error {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 0.35rem;
+  background: #fff4f4;
+  color: #81272e;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
 }
 
 @media (max-width: 700px) {
