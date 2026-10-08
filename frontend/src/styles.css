@@ -10,6 +10,8 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
 }
 
 * {
@@ -19,46 +21,207 @@ body {
   margin: 0;
   min-width: 320px;
 }
+button {
+  font: inherit;
+}
+h1,
+h2,
+h3,
+p,
+dl {
+  margin: 0;
+}
+
 .workspace {
-  width: min(100% - 2rem, 960px);
-  margin: 4rem auto;
+  width: min(1080px, calc(100% - 2rem));
+  margin: 3rem auto;
+}
+.workspace-header,
+.list-heading,
+.task-card-heading,
+.task-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 .workspace-header {
   margin-bottom: 2rem;
+  flex-wrap: wrap;
 }
 .eyebrow {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #355f78;
+  color: #315b78;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 h1 {
-  margin: 0.5rem 0 1rem;
-  font-size: clamp(2rem, 5vw, 3rem);
-  line-height: 1.15;
+  font-size: clamp(1.75rem, 5vw, 2.25rem);
+  margin-top: 0.25rem;
 }
 h2 {
-  margin-top: 0;
   font-size: 1.25rem;
 }
-p {
-  line-height: 1.6;
+h3 {
+  font-size: 1.05rem;
+  overflow-wrap: anywhere;
 }
-.introduction,
-.workspace-content p {
-  color: #465c6c;
+.introduction {
+  margin-top: 0.5rem;
+  color: #526473;
 }
 .workspace-content {
+  background: #fff;
   padding: 2rem;
   border: 1px solid #d9e2ea;
   border-radius: 0.75rem;
-  background: #fff;
+}
+.list-heading {
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+.task-count,
+.muted {
+  color: #526473;
+}
+.task-count {
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
 }
 
-@media (max-width: 480px) {
+.button {
+  padding: 0.55rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 0.4rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.button-primary {
+  color: #fff;
+  background: #155a92;
+}
+.button-primary:hover:not(:disabled) {
+  background: #104775;
+}
+.button-secondary {
+  color: #234b68;
+  background: #fff;
+  border-color: #bdccd7;
+}
+.button-secondary:hover:not(:disabled) {
+  background: #f0f5f8;
+}
+.button-danger {
+  color: #9e2830;
+  background: #fff;
+  border-color: #dbb9bd;
+}
+.button:focus-visible {
+  outline: 3px solid #1671bd;
+  outline-offset: 3px;
+}
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.task-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.task-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem;
+  border: 1px solid #d9e2ea;
+  border-radius: 0.5rem;
+}
+.task-card-heading {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.task-status {
+  display: inline-block;
+  border-radius: 1rem;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.task-status--pendiente {
+  color: #765006;
+  background: #fff1cc;
+}
+.task-status--en_proceso {
+  color: #145687;
+  background: #e3f0fb;
+}
+.task-status--completado {
+  color: #226442;
+  background: #e1f3e7;
+}
+.task-description {
+  margin: 1rem 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.task-responsible {
+  margin-top: auto;
+  overflow-wrap: anywhere;
+}
+.task-responsible dt {
+  color: #526473;
+  font-size: 0.85rem;
+}
+.task-responsible dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+}
+.task-actions {
+  justify-content: flex-end;
+  margin-top: 1rem;
+  gap: 0.5rem;
+}
+.feedback-panel {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  background: #f7f9fb;
+  border-radius: 0.5rem;
+}
+.feedback-panel p {
+  margin: 0.5rem 0 1rem;
+}
+.feedback-error {
+  background: #fff4f4;
+  color: #81272e;
+}
+.management-note {
+  margin-top: 1.5rem;
+  color: #526473;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 700px) {
   .workspace {
-    margin-top: 2rem;
+    margin: 1.5rem auto;
   }
   .workspace-content {
-    padding: 1.25rem;
+    padding: 1rem;
+  }
+  .task-list {
+    grid-template-columns: 1fr;
+  }
+  .task-card {
+    padding: 1rem;
+  }
+  .list-heading {
+    gap: 0.5rem;
   }
 }

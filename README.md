@@ -6,17 +6,19 @@ En Proceso o Completado.
 
 ## Avance actual
 
-Las partes 1, 2, 3, 4 y 5 del plan están implementadas: frontend y backend con TypeScript,
+Las partes 1, 2, 3, 4, 5 y 6 del plan están implementadas: frontend y backend con TypeScript,
 npm workspaces, ESLint, Prettier, persistencia con Prisma y SQLite y una API para
-listar, crear, editar y eliminar tareas. El frontend presenta la pantalla inicial. El backend verifica
+listar, crear, editar y eliminar tareas. El frontend consulta y muestra las tareas de la API. El backend verifica
 la conexión y las tablas al arrancar y ofrece un endpoint de salud.
 
 La API incluye validaciones con Zod, CORS para el origen del frontend, manejo centralizado
 de errores y pruebas de integración sobre una base temporal. La base incluye una
 migración versionada, restricciones de datos, un seed opcional y pruebas de persistencia.
-La API está documentada con OpenAPI y Swagger UI. La integración del frontend y
-GitHub Actions se agregarán en los siguientes avances.
-La pantalla inicial todavía no consulta ni administra tareas.
+La API está documentada con OpenAPI y Swagger UI. El listado de React incluye estados
+de carga, lista vacía y error, además de actualización y reintento. Los botones Nueva tarea,
+Editar, Eliminar y Crear primera tarea están preparados y deshabilitados: los formularios
+y las operaciones desde la interfaz se conectarán en la parte 7. GitHub Actions corresponde
+a la parte 8.
 
 ## Requisitos
 
@@ -185,7 +187,44 @@ Si cambias el puerto del backend, actualiza también `VITE_API_URL` y reinicia e
 Si cambias el origen del frontend, actualiza `FRONTEND_ORIGIN` y reinicia el backend.
 `localhost` y `127.0.0.1` son orígenes diferentes: utiliza las URLs documentadas de forma consistente.
 
-## API disponible en la parte 5
+## Listado de tareas en React (parte 6)
+
+Con la base migrada y ambos servidores iniciados, abre <http://127.0.0.1:5173>.
+La pantalla consulta `GET /api/tasks` y muestra título, descripción, responsable y estado.
+Respeta el orden recibido de la API; los estados se presentan como Pendiente, En Proceso
+y Completado. Una descripción nula se muestra como **Sin descripción**. Los textos largos
+se ajustan a las tarjetas y las descripciones conservan los saltos de línea.
+
+- **Cargando:** anuncia la consulta y deshabilita Actualizar mientras está pendiente.
+- **Sin tareas:** explica que la lista está vacía y prepara el botón Crear primera tarea.
+- **Error:** muestra un mensaje comprensible y ofrece Reintentar.
+- **Con tareas:** muestra las tarjetas y el total; Actualizar vuelve a consultar la API.
+
+Las peticiones HTTP se concentran en `frontend/src/features/tasks/tasks.api.ts`, que utiliza
+`VITE_API_URL`. Los componentes no contienen URLs ni llamadas a `fetch`. Zod verifica el
+formato de las respuestas antes de mostrarlas. El hook `useTasks` gestiona los estados y
+cancela las peticiones al desmontarse o reemplazarse, evitando respuestas desactualizadas,
+también durante las comprobaciones adicionales de React StrictMode en desarrollo.
+
+El diseño utiliza dos columnas en escritorio y una en pantallas de hasta 700 px.
+Los estados incluyen texto además de color; la carga y los errores tienen anuncios
+accesibles, y los controles de actualización y reintento se pueden usar con teclado.
+
+### Comprobación manual
+
+1. En una base vacía, abre el frontend y comprueba **No hay tareas registradas**.
+2. Crea una tarea desde Swagger o ejecuta el seed opcional si la base sigue vacía.
+3. Pulsa **Actualizar** en React y verifica los campos y los estados.
+4. Detén solamente el backend con `Ctrl+C` en su terminal y pulsa **Actualizar**.
+   Debe aparecer el mensaje de conexión y el botón **Reintentar**.
+5. Reinicia el backend, pulsa **Reintentar** y comprueba que vuelve el listado.
+6. Reduce el ancho de la ventana y comprueba que las tarjetas pasan a una columna.
+
+Para probar el error, inicia frontend y backend en terminales separadas: el comando conjunto
+`npm run dev` detiene ambos cuando uno falla. No borres tu base para comprobar el estado vacío;
+puedes usar una base temporal distinta y aplicar sus migraciones.
+
+## API disponible
 
 URL base de ejemplo: `http://127.0.0.1:3000/api`. Las solicitudes de creación y edición deben
 enviar `Content-Type: application/json`. No se requiere autenticación.
@@ -423,10 +462,17 @@ responsabilidad de Zod y de las restricciones de la base.
 | `npm run test:api`         | Verifica las cuatro operaciones, validaciones, errores y CORS por HTTP            |
 | `npm run docs:validate`    | Valida la especificación OpenAPI y sus referencias                                |
 | `npm run test:docs`        | Comprueba los ejemplos y esquemas de la documentación                             |
-| `npm test`                 | Ejecuta todas las pruebas del backend                                             |
+| `npm run test:frontend`    | Verifica carga, listado, vacío, errores, reintento y cancelación en React         |
+| `npm test`                 | Ejecuta todas las pruebas del frontend y backend                                  |
 | `npm run check`            | Ejecuta lint, formato, validación OpenAPI, tipos, compilación y todas las pruebas |
 
-Las pruebas usan una base temporal aislada bajo `backend/.test-data`, que se elimina
+Las pruebas del frontend usan Vitest, jsdom y React Testing Library, con respuestas HTTP
+simuladas para comprobar fallos y solicitudes pendientes de forma reproducible. Verifican
+los cuatro campos, los estados, la actualización, la recuperación de errores, respuestas
+incompatibles y la cancelación que evita mostrar respuestas antiguas. No requieren servidores
+en ejecución. Puedes ejecutarlas con `npm run test:frontend`.
+
+Las pruebas del backend usan una base temporal aislada bajo `backend/.test-data`, que se elimina
 al finalizar. No utilizan ni modifican `dev.db`. Verifican la instalación desde un archivo
 inexistente, la repetición segura de migraciones y seed, los campos obligatorios,
 los estados y longitudes inválidos, títulos repetidos, fechas y lectura desde un proceso nuevo.
@@ -459,10 +505,18 @@ y reinicia el backend. Al volver al servidor de desarrollo, restaura el origen d
 frontend/
   src/
     config/           Validación de variables públicas
-    App.tsx           Pantalla inicial
+    features/tasks/
+      tasks.api.ts    Consulta HTTP centralizada
+      tasks.schema.ts Validación de respuestas con Zod
+      tasks.types.ts  Tipos y etiquetas de los estados
+      hooks/useTasks.ts Estados, reintento y cancelación
+      components/    Tarjetas y listado con estado vacío
+    App.tsx           Pantalla del listado y estados de consulta
     main.tsx          Entrada de React
     styles.css        Estilos básicos
   vite.config.ts      Servidor y compilación
+  vitest.config.ts    Entorno de pruebas de React
+  tests/              Pruebas del listado y del cliente HTTP
 backend/
   src/
     config/           Entorno, ruta compartida de la base y carga de OpenAPI
@@ -511,7 +565,7 @@ indirectas de la CLI, con versiones corregidas de sus avisos de seguridad. No im
 el uso de MySQL por la aplicación. La generación, las migraciones y las pruebas verifican
 la compatibilidad de esos ajustes.
 
-## Commit y push manuales de la parte 5
+## Commit y push manuales de la parte 6
 
 Los commits y push los realiza el candidato. Git ya está inicializado; no es necesario
 volver a ejecutar `git init`. Antes de publicar:
@@ -520,9 +574,9 @@ volver a ejecutar `git init`. Antes de publicar:
 npm run check
 git status
 git diff
-git add README.md package.json package-lock.json backend
+git add README.md package.json package-lock.json frontend
 git diff --cached
-git commit -m "docs: documentar la API con OpenAPI y Swagger UI"
+git commit -m "feat: mostrar tareas con estados de carga y error"
 git push
 ```
 
