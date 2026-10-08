@@ -24,7 +24,8 @@ tags:
 paths:
   /health:
     get:
-      tags: [Salud]
+      tags:
+        - Salud
       operationId: getHealth
       summary: Comprobar la disponibilidad del servidor
       description: El backend verifica la base de datos antes de empezar a escuchar.
@@ -36,16 +37,19 @@ paths:
               schema:
                 type: object
                 additionalProperties: false
-                required: [status]
+                required:
+                  - status
                 properties:
                   status:
                     type: string
-                    enum: [ok]
+                    enum:
+                      - ok
               example:
                 status: ok
   /team-members:
     get:
-      tags: [Integrantes]
+      tags:
+        - Integrantes
       operationId: listActiveTeamMembers
       summary: Listar integrantes activos del equipo
       description: |
@@ -55,7 +59,7 @@ paths:
         Devuelve [] si el catálogo está vacío o todos los integrantes están inactivos.
         No requiere autenticación, cuerpo ni parámetros. No utiliza paginación.
         Publica solo id, code, name e isActive. La consulta no modifica los datos.
-        En esta fase las tareas todavía reciben responsible como texto libre.
+        Las tareas reciben responsibleId al crear o editar.
       responses:
         '200':
           description: Listado de integrantes activos
@@ -84,12 +88,18 @@ paths:
           $ref: '#/components/responses/InternalError'
   /tasks:
     get:
-      tags: [Tareas]
+      tags:
+        - Tareas
       operationId: listTasks
       summary: Listar todas las tareas
-      description: |
+      description: >
         Ordena por createdAt descendente y desempata por id descendente.
+
         Devuelve un arreglo vacío si no hay tareas. No utiliza paginación.
+
+
+        Incluye responsibleId y el objeto público responsible, también si el integrante está
+        inactivo.
       responses:
         '200':
           description: Listado de tareas
@@ -106,23 +116,35 @@ paths:
                     - id: 1
                       title: Revisar servidor de pruebas
                       description: Comprobar los servicios del equipo.
-                      responsible: Ana Pérez
+                      responsible:
+                        id: 1
+                        code: TI-001
+                        name: Franco Cabello
+                        isActive: true
                       status: PENDIENTE
-                      createdAt: '2026-10-08T12:00:00.000Z'
-                      updatedAt: '2026-10-08T12:00:00.000Z'
+                      createdAt: 2026-10-08T12:00:00.000Z
+                      updatedAt: 2026-10-08T12:00:00.000Z
+                      responsibleId: 1
                 vacio:
                   summary: Sin tareas registradas
                   value: []
         '500':
           $ref: '#/components/responses/InternalError'
     post:
-      tags: [Tareas]
+      tags:
+        - Tareas
       operationId: createTask
       summary: Crear una tarea
-      description: |
+      description: >
         Exige título, responsable y estado. La descripción es opcional.
+
         Se permiten títulos repetidos. El servidor genera id y las fechas.
+
         Rechaza propiedades adicionales, incluidos id, createdAt y updatedAt.
+
+
+        El responsibleId debe existir y estar activo. La comprobación y la escritura se realizan en
+        una transacción. No se aceptan nombres libres ni objetos responsible.
       requestBody:
         required: true
         content:
@@ -135,21 +157,21 @@ paths:
                 value:
                   title: Revisar servidor de pruebas
                   description: Comprobar los servicios del equipo.
-                  responsible: Ana Pérez
                   status: PENDIENTE
+                  responsibleId: 1
               enProceso:
                 summary: Tarea en proceso sin descripción
                 value:
                   title: Actualizar dependencias
-                  responsible: Luis
                   status: EN_PROCESO
+                  responsibleId: 2
               completada:
                 summary: Tarea completada con descripción nula
                 value:
                   title: Verificar respaldo
                   description: null
-                  responsible: Ana Pérez
                   status: COMPLETADO
+                  responsibleId: 1
       responses:
         '201':
           description: Tarea creada y persistida
@@ -172,14 +194,22 @@ paths:
     parameters:
       - $ref: '#/components/parameters/TaskId'
     put:
-      tags: [Tareas]
+      tags:
+        - Tareas
       operationId: updateTask
       summary: Editar una tarea
-      description: |
+      description: >
         Exige los cuatro campos editables completos. Para borrar la descripción,
+
         envía null o texto vacío; omitirla devuelve 400. Puede cambiar entre
+
         cualquiera de los tres estados. Conserva id y createdAt y actualiza updatedAt.
+
         Rechaza propiedades adicionales, incluidos id, createdAt y updatedAt.
+
+
+        Exige responsibleId. Permite conservar al responsable inactivo actual; cambiarlo exige uno
+        activo. La tarea inexistente devuelve 404 antes de comprobar la asignación.
       requestBody:
         required: true
         content:
@@ -192,15 +222,15 @@ paths:
                 value:
                   title: Actualizar servidor de pruebas
                   description: Instalar las actualizaciones aprobadas.
-                  responsible: Luis
                   status: EN_PROCESO
+                  responsibleId: 2
               quitarDescripcion:
                 summary: Completar la tarea y quitar su descripción
                 value:
                   title: Revisión del servidor finalizada
                   description: null
-                  responsible: Ana Pérez
                   status: COMPLETADO
+                  responsibleId: 1
       responses:
         '200':
           description: Tarea actualizada y persistida
@@ -212,10 +242,15 @@ paths:
                 id: 1
                 title: Actualizar servidor de pruebas
                 description: Instalar las actualizaciones aprobadas.
-                responsible: Luis
+                responsible:
+                  id: 2
+                  code: TI-002
+                  name: Oscar Perez
+                  isActive: true
                 status: EN_PROCESO
-                createdAt: '2026-10-08T12:00:00.000Z'
-                updatedAt: '2026-10-08T13:00:00.000Z'
+                createdAt: 2026-10-08T12:00:00.000Z
+                updatedAt: 2026-10-08T13:00:00.000Z
+                responsibleId: 2
         '400':
           $ref: '#/components/responses/InvalidRequest'
         '404':
@@ -227,7 +262,8 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
     delete:
-      tags: [Tareas]
+      tags:
+        - Tareas
       operationId: deleteTask
       summary: Eliminar una tarea
       description: |
@@ -263,7 +299,11 @@ components:
     ActiveTeamMember:
       type: object
       additionalProperties: false
-      required: [id, code, name, isActive]
+      required:
+        - id
+        - code
+        - name
+        - isActive
       properties:
         id:
           type: integer
@@ -277,7 +317,7 @@ components:
           type: string
           minLength: 1
           maxLength: 30
-          pattern: '^[A-Z0-9]+(?:-[A-Z0-9]+)*$'
+          pattern: ^[A-Z0-9]+(?:-[A-Z0-9]+)*$
           readOnly: true
           description: Código interno único y estable del integrante.
           example: TI-001
@@ -285,13 +325,14 @@ components:
           type: string
           minLength: 1
           maxLength: 100
-          pattern: '\S'
+          pattern: \S
           readOnly: true
           description: Nombre del integrante; permite homónimos identificados por código.
           example: Franco Cabello
         isActive:
           type: boolean
-          enum: [true]
+          enum:
+            - true
           readOnly: true
           description: Siempre true en el listado de integrantes activos.
           example: true
@@ -299,7 +340,7 @@ components:
       type: string
       minLength: 1
       maxLength: 150
-      pattern: '\S'
+      pattern: \S
       description: Título obligatorio; las longitudes se validan después de recortar espacios.
       example: Revisar servidor de pruebas
     TaskDescription:
@@ -311,16 +352,12 @@ components:
         El texto vacío se guarda como null. Puede omitirse al crear, pero debe
         enviarse como texto o null al editar.
       example: Comprobar los servicios del equipo.
-    TaskResponsible:
-      type: string
-      minLength: 1
-      maxLength: 100
-      pattern: '\S'
-      description: Responsable obligatorio; las longitudes se validan después de recortar espacios.
-      example: Ana Pérez
     TaskStatus:
       type: string
-      enum: [PENDIENTE, EN_PROCESO, COMPLETADO]
+      enum:
+        - PENDIENTE
+        - EN_PROCESO
+        - COMPLETADO
       description: |
         Valor interno del estado. Los textos de presentación son Pendiente,
         En Proceso y Completado. La API exige el valor interno y no aplica un estado por defecto.
@@ -328,33 +365,48 @@ components:
     CreateTask:
       type: object
       additionalProperties: false
-      required: [title, responsible, status]
+      required:
+        - title
+        - responsibleId
+        - status
       properties:
         title:
           $ref: '#/components/schemas/TaskTitle'
         description:
           $ref: '#/components/schemas/TaskDescription'
-        responsible:
-          $ref: '#/components/schemas/TaskResponsible'
         status:
           $ref: '#/components/schemas/TaskStatus'
+        responsibleId:
+          $ref: '#/components/schemas/ResponsibleId'
     UpdateTask:
       type: object
       additionalProperties: false
-      required: [title, description, responsible, status]
+      required:
+        - title
+        - description
+        - responsibleId
+        - status
       properties:
         title:
           $ref: '#/components/schemas/TaskTitle'
         description:
           $ref: '#/components/schemas/TaskDescription'
-        responsible:
-          $ref: '#/components/schemas/TaskResponsible'
         status:
           $ref: '#/components/schemas/TaskStatus'
+        responsibleId:
+          $ref: '#/components/schemas/ResponsibleId'
     Task:
       type: object
       additionalProperties: false
-      required: [id, title, description, responsible, status, createdAt, updatedAt]
+      required:
+        - id
+        - title
+        - description
+        - responsibleId
+        - status
+        - createdAt
+        - updatedAt
+        - responsible
       properties:
         id:
           type: integer
@@ -367,8 +419,6 @@ components:
           $ref: '#/components/schemas/TaskTitle'
         description:
           $ref: '#/components/schemas/TaskDescription'
-        responsible:
-          $ref: '#/components/schemas/TaskResponsible'
         status:
           $ref: '#/components/schemas/TaskStatus'
         createdAt:
@@ -376,22 +426,29 @@ components:
           format: date-time
           readOnly: true
           description: Fecha de creación generada por el servidor, en ISO 8601.
-          example: '2026-10-08T12:00:00.000Z'
+          example: 2026-10-08T12:00:00.000Z
         updatedAt:
           type: string
           format: date-time
           readOnly: true
           description: Fecha de última modificación actualizada por Prisma, en ISO 8601.
-          example: '2026-10-08T12:00:00.000Z'
+          example: 2026-10-08T12:00:00.000Z
+        responsibleId:
+          $ref: '#/components/schemas/ResponsibleId'
+        responsible:
+          $ref: '#/components/schemas/TeamMember'
     ApiError:
       type: object
       additionalProperties: false
-      required: [error]
+      required:
+        - error
       properties:
         error:
           type: object
           additionalProperties: false
-          required: [code, message]
+          required:
+            - code
+            - message
           properties:
             code:
               type: string
@@ -410,15 +467,64 @@ components:
               description: Mensaje público en español; no incluye SQL ni trazas internas.
             fields:
               type: object
-              description: |
+              description: >
                 Mensajes por campo para VALIDATION_ERROR. id identifica un problema
-                del parámetro de ruta y body un problema del objeto completo o de campos adicionales.
+
+                del parámetro de ruta y body un problema del objeto completo o de campos
+                adicionales.
               additionalProperties:
                 type: array
                 minItems: 1
                 items:
                   type: string
                   minLength: 1
+    ResponsibleId:
+      type: integer
+      format: int32
+      minimum: 1
+      maximum: 2147483647
+      description: Identificador de un integrante registrado. Crear o reasignar exige un integrante activo.
+      example: 1
+    TeamMember:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - code
+        - name
+        - isActive
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          readOnly: true
+          description: Identificador generado por el servidor; no asumir valores fijos.
+          example: 1
+        code:
+          type: string
+          minLength: 1
+          maxLength: 30
+          pattern: ^[A-Z0-9]+(?:-[A-Z0-9]+)*$
+          readOnly: true
+          description: Código interno único y estable del integrante.
+          example: TI-001
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          pattern: \S
+          readOnly: true
+          description: Nombre del integrante; permite homónimos identificados por código.
+          example: Franco Cabello
+        isActive:
+          type: boolean
+          readOnly: true
+          description:
+            Estado actual del integrante. Una asignación existente puede conservar un responsable
+            inactivo.
+          example: true
   examples:
     CreatedTask:
       summary: Tarea creada con identificador y fechas del servidor
@@ -426,10 +532,15 @@ components:
         id: 1
         title: Revisar servidor de pruebas
         description: Comprobar los servicios del equipo.
-        responsible: Ana Pérez
+        responsible:
+          id: 1
+          code: TI-001
+          name: Franco Cabello
+          isActive: true
         status: PENDIENTE
-        createdAt: '2026-10-08T12:00:00.000Z'
-        updatedAt: '2026-10-08T12:00:00.000Z'
+        createdAt: 2026-10-08T12:00:00.000Z
+        updatedAt: 2026-10-08T12:00:00.000Z
+        responsibleId: 1
   responses:
     InvalidRequest:
       description: Identificador o datos inválidos, campos adicionales, JSON mal formado o URL inválida
@@ -444,7 +555,8 @@ components:
                   code: VALIDATION_ERROR
                   message: Revisa los campos enviados.
                   fields:
-                    title: [El título es obligatorio.]
+                    title:
+                      - El título es obligatorio.
             identificadorInvalido:
               value:
                 error:
@@ -452,16 +564,15 @@ components:
                   message: Revisa los campos enviados.
                   fields:
                     id:
-                      [
-                        El identificador debe ser un entero positivo sin ceros iniciales ni espacios.,
-                      ]
+                      - El identificador debe ser un entero positivo sin ceros iniciales ni espacios.
             descripcionAusenteAlEditar:
               value:
                 error:
                   code: VALIDATION_ERROR
                   message: Revisa los campos enviados.
                   fields:
-                    description: [Envía la descripción como texto o null al editar la tarea.]
+                    description:
+                      - Envía la descripción como texto o null al editar la tarea.
             jsonInvalido:
               value:
                 error:
@@ -472,6 +583,14 @@ components:
                 error:
                   code: INVALID_PATH
                   message: La ruta contiene una codificación inválida.
+            responsableInvalido:
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Revisa los campos enviados.
+                  fields:
+                    responsibleId:
+                      - Selecciona un integrante activo del equipo.
     TaskNotFound:
       description: La tarea no existe o ya fue eliminada
       content:

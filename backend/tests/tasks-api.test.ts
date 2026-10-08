@@ -14,7 +14,7 @@ const backendDirectory = fileURLToPath(new URL('../', import.meta.url));
 const testRoot = join(backendDirectory, '.test-data');
 const originalDatabaseUrl = process.env.DATABASE_URL;
 const frontendOrigin = 'http://127.0.0.1:5173';
-const validTask = { title: 'Revisar servidor', responsible: 'Ana', status: 'PENDIENTE' };
+const validTask = { title: 'Revisar servidor', responsibleId: 1, status: 'PENDIENTE' };
 
 let temporaryDirectory: string;
 let prisma: PrismaClient;
@@ -45,6 +45,13 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await prisma.task.deleteMany();
+  await prisma.teamMember.deleteMany();
+  await prisma.teamMember.createMany({
+    data: [
+      { id: 1, code: 'TI-001', name: 'Ana' },
+      { id: 2, code: 'TI-002', name: 'Luis' },
+    ],
+  });
 });
 
 afterEach(() => {
@@ -87,6 +94,7 @@ describe('Listado y creación de tareas por HTTP', () => {
       await expectDocumentedResponse(response, 'post', '/tasks');
       expect(response.body).toEqual({
         ...validTask,
+        responsible: { id: 1, code: 'TI-001', name: 'Ana', isActive: true },
         status,
         description: null,
         id: expect.any(Number),
@@ -111,14 +119,14 @@ describe('Listado y creación de tareas por HTTP', () => {
       .post('/api/tasks')
       .send({
         title: '  Revisar servidor  ',
-        responsible: '  Ana Pérez  ',
+        responsibleId: 1,
         description: '  Primera línea\nSegunda línea  ',
         status: 'PENDIENTE',
       })
       .expect(201);
     expect(response.body).toMatchObject({
       title: 'Revisar servidor',
-      responsible: 'Ana Pérez',
+      responsibleId: 1,
       description: 'Primera línea\nSegunda línea',
     });
   });
@@ -142,13 +150,13 @@ describe('Listado y creación de tareas por HTTP', () => {
       .post('/api/tasks')
       .send({
         title: 'a'.repeat(150),
-        responsible: 'b'.repeat(100),
+        responsibleId: 1,
         description: 'c'.repeat(2000),
         status: 'PENDIENTE',
       })
       .expect(201);
     expect(response.body.title).toHaveLength(150);
-    expect(response.body.responsible).toHaveLength(100);
+    expect(response.body.responsibleId).toBe(1);
     expect(response.body.description).toHaveLength(2000);
   });
 
@@ -187,15 +195,25 @@ describe('Listado y creación de tareas por HTTP', () => {
 });
 
 const invalidTasks: Array<[string, unknown, string]> = [
-  ['título ausente', { responsible: 'Ana', status: 'PENDIENTE' }, 'title'],
-  ['responsable ausente', { title: 'Tarea', status: 'PENDIENTE' }, 'responsible'],
-  ['estado ausente', { title: 'Tarea', responsible: 'Ana' }, 'status'],
+  ['responsable cero', { ...validTask, responsibleId: 0 }, 'responsibleId'],
+  ['responsable negativo', { ...validTask, responsibleId: -1 }, 'responsibleId'],
+  ['responsable decimal', { ...validTask, responsibleId: 1.5 }, 'responsibleId'],
+  ['responsable numérico como texto', { ...validTask, responsibleId: '1' }, 'responsibleId'],
+  ['responsable fuera de rango', { ...validTask, responsibleId: 2147483648 }, 'responsibleId'],
+  ['nombre libre del contrato anterior', { ...validTask, responsible: 'Ana' }, 'body'],
+  ['título ausente', { responsibleId: 1, status: 'PENDIENTE' }, 'title'],
+  ['responsable ausente', { title: 'Tarea', status: 'PENDIENTE' }, 'responsibleId'],
+  ['estado ausente', { title: 'Tarea', responsibleId: 1 }, 'status'],
   ['título vacío', { ...validTask, title: '' }, 'title'],
   ['título con espacios', { ...validTask, title: ' \t\n ' }, 'title'],
-  ['responsable vacío', { ...validTask, responsible: '' }, 'responsible'],
-  ['responsable con espacios', { ...validTask, responsible: ' \t\n ' }, 'responsible'],
+  ['responsable vacío', { ...validTask, responsibleId: '' }, 'responsibleId'],
+  ['responsable con espacios', { ...validTask, responsibleId: ' \t\n ' }, 'responsibleId'],
   ['título de 151 caracteres', { ...validTask, title: 'a'.repeat(151) }, 'title'],
-  ['responsable de 101 caracteres', { ...validTask, responsible: 'a'.repeat(101) }, 'responsible'],
+  [
+    'responsable de 101 caracteres',
+    { ...validTask, responsibleId: 'a'.repeat(101) },
+    'responsibleId',
+  ],
   [
     'descripción de 2001 caracteres',
     { ...validTask, description: 'a'.repeat(2001) },
@@ -203,8 +221,8 @@ const invalidTasks: Array<[string, unknown, string]> = [
   ],
   ['título numérico', { ...validTask, title: 123 }, 'title'],
   ['título nulo', { ...validTask, title: null }, 'title'],
-  ['responsable como objeto', { ...validTask, responsible: { name: 'Ana' } }, 'responsible'],
-  ['responsable nulo', { ...validTask, responsible: null }, 'responsible'],
+  ['responsable como objeto', { ...validTask, responsibleId: { name: 'Ana' } }, 'responsibleId'],
+  ['responsable nulo', { ...validTask, responsibleId: null }, 'responsibleId'],
   ['descripción numérica', { ...validTask, description: 123 }, 'description'],
   ['descripción como arreglo', { ...validTask, description: [] }, 'description'],
   ['estado desconocido', { ...validTask, status: 'BLOQUEADO' }, 'status'],
@@ -239,7 +257,7 @@ describe('Validaciones y errores de la API', () => {
     const response = await request(app).post('/api/tasks').send({}).expect(400);
     expect(response.body.error.fields).toEqual({
       title: ['El título es obligatorio.'],
-      responsible: ['El responsable es obligatorio.'],
+      responsibleId: ['El responsable es obligatorio.'],
       status: ['El estado es obligatorio.'],
     });
   });
@@ -324,7 +342,7 @@ describe('Validaciones y errores de la API', () => {
 const validUpdate = {
   title: 'Actualizar servidor',
   description: 'Actualizar los servicios del equipo.',
-  responsible: 'Luis',
+  responsibleId: 2,
   status: 'EN_PROCESO',
 };
 
@@ -333,7 +351,7 @@ async function existingTask() {
     data: {
       title: validTask.title,
       description: 'Descripción original',
-      responsible: validTask.responsible,
+      responsibleId: validTask.responsibleId,
       status: 'COMPLETADO',
       updatedAt: new Date('2000-01-01T00:00:00Z'),
     },
@@ -353,6 +371,7 @@ describe('Edición de tareas por HTTP', () => {
 
       expect(response.body).toEqual({
         ...validUpdate,
+        responsible: { id: 2, code: 'TI-002', name: 'Luis', isActive: true },
         status,
         id: original.id,
         createdAt: original.createdAt.toISOString(),
@@ -375,14 +394,14 @@ describe('Edición de tareas por HTTP', () => {
       .send({
         title: '  Título editado  ',
         description: '  Detalle\nSegunda línea  ',
-        responsible: '  Luis Pérez  ',
+        responsibleId: 2,
         status: 'EN_PROCESO',
       })
       .expect(200);
     expect(response.body).toMatchObject({
       title: 'Título editado',
       description: 'Detalle\nSegunda línea',
-      responsible: 'Luis Pérez',
+      responsibleId: 2,
     });
   });
 
@@ -404,7 +423,7 @@ describe('Edición de tareas por HTTP', () => {
     const unrelated = await existingTask();
     const update = {
       title: 'a'.repeat(150),
-      responsible: 'b'.repeat(100),
+      responsibleId: 1,
       description: 'c'.repeat(2000),
       status: 'COMPLETADO',
     };
@@ -441,7 +460,7 @@ describe('Edición de tareas por HTTP', () => {
     const response = await request(app).put(`/api/tasks/${original.id}`).send({}).expect(400);
     expect(Object.keys(response.body.error.fields).sort()).toEqual([
       'description',
-      'responsible',
+      'responsibleId',
       'status',
       'title',
     ]);
@@ -560,6 +579,62 @@ const invalidTaskIds = [
   '1%0D',
   '1%0D%0A',
 ];
+
+describe('Asignación a integrantes registrados', () => {
+  it.each(['post', 'put'] as const)(
+    'rechaza un responsable inexistente o inactivo en %s sin cambiar tareas',
+    async (method) => {
+      const task = await existingTask();
+      await prisma.teamMember.update({ where: { id: 2 }, data: { isActive: false } });
+      for (const responsibleId of [2, 2147483647]) {
+        const response = await request(app)
+          [method](method === 'post' ? '/api/tasks' : `/api/tasks/${task.id}`)
+          .send({ ...validUpdate, responsibleId })
+          .expect(400);
+        await expectDocumentedResponse(
+          response,
+          method,
+          method === 'post' ? '/tasks' : '/tasks/{id}',
+        );
+        expect(response.body.error.fields.responsibleId).toEqual([expect.any(String)]);
+        expect(await prisma.task.findMany()).toEqual([task]);
+      }
+    },
+  );
+  it('permite conservar al responsable inactivo actual y reasignar después a uno activo', async () => {
+    const task = await existingTask();
+    await prisma.teamMember.update({ where: { id: 1 }, data: { isActive: false } });
+    const kept = await request(app)
+      .put(`/api/tasks/${task.id}`)
+      .send({ ...validUpdate, responsibleId: 1 })
+      .expect(200);
+    await expectDocumentedResponse(kept, 'put', '/tasks/{id}');
+    expect(kept.body.responsible).toEqual({ id: 1, code: 'TI-001', name: 'Ana', isActive: false });
+    expect(
+      (await request(app).get('/api/team-members')).body.map((member: { id: number }) => member.id),
+    ).toEqual([2]);
+    const reassigned = await request(app)
+      .put(`/api/tasks/${task.id}`)
+      .send(validUpdate)
+      .expect(200);
+    expect(reassigned.body.responsibleId).toBe(2);
+    expect(reassigned.body.responsible.isActive).toBe(true);
+  });
+  it('protege al integrante referenciado y conserva el catálogo al eliminar la tarea', async () => {
+    const task = await existingTask();
+    await expect(prisma.teamMember.delete({ where: { id: 1 } })).rejects.toThrow();
+    await request(app).delete(`/api/tasks/${task.id}`).expect(204);
+    expect(await prisma.teamMember.count()).toBe(2);
+  });
+  it('responde 404 para una tarea inexistente antes de validar la existencia del integrante', async () => {
+    const response = await request(app)
+      .put('/api/tasks/2147483647')
+      .send({ ...validUpdate, responsibleId: 2147483647 })
+      .expect(404);
+    await expectDocumentedResponse(response, 'put', '/tasks/{id}');
+    expect(response.body.error.code).toBe('TASK_NOT_FOUND');
+  });
+});
 
 describe.each(['put', 'delete'] as const)('Identificadores y errores en %s', (method) => {
   it.each(invalidTaskIds)(

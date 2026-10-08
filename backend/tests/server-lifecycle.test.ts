@@ -111,6 +111,13 @@ beforeAll(async () => {
     timeout: 45000,
     windowsHide: true,
   });
+  execFileSync(process.execPath, [npmCli, 'run', 'db:seed:members'], {
+    cwd: backendDirectory,
+    env: serverEnvironment,
+    stdio: 'pipe',
+    timeout: 45000,
+    windowsHide: true,
+  });
   await startServer();
 });
 
@@ -126,10 +133,16 @@ afterAll(async () => {
 });
 
 it('crea, consulta, edita, reinicia el backend, consulta y elimina conservando la persistencia', async () => {
+  const members = (await (await callApi('/team-members')).json()) as Array<{
+    id: number;
+    code: string;
+  }>;
+  const franco = members.find((member) => member.code === 'TI-001')!;
+  const oscar = members.find((member) => member.code === 'TI-002')!;
   const input = {
     title: 'Verificar reinicio del backend',
     description: 'Comprobar persistencia.',
-    responsible: 'Equipo TI',
+    responsibleId: franco.id,
     status: 'PENDIENTE',
   };
   const createdResponse = await callApi('/tasks', 'POST', input);
@@ -144,7 +157,7 @@ it('crea, consulta, edita, reinicia el backend, consulta y elimina conservando l
     ...input,
     title: 'Persistencia comprobada',
     description: null,
-    responsible: 'Ana Pérez',
+    responsibleId: oscar.id,
     status: 'COMPLETADO',
   };
   const editedResponse = await callApi(`/tasks/${created.id}`, 'PUT', update);

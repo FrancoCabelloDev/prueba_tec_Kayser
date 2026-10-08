@@ -14,13 +14,14 @@ const originalDatabaseUrl = process.env.DATABASE_URL;
 let temporaryDirectory: string;
 let databaseUrl: string;
 let prisma: PrismaClient | undefined;
+let responsibleId: number;
 
 function database() {
   if (!prisma) throw new Error('La base de prueba no está inicializada.');
   return prisma;
 }
 
-function runDatabaseCommand(script: 'db:migrate' | 'db:seed') {
+function runDatabaseCommand(script: 'db:migrate' | 'db:seed' | 'db:seed:members') {
   if (!npmCli) throw new Error('Ejecuta las pruebas mediante npm run test:persistence.');
   return execFileSync(process.execPath, [npmCli, 'run', script], {
     cwd: backendDirectory,
@@ -42,6 +43,8 @@ beforeAll(async () => {
   const module = await import('../src/lib/prisma.js');
   prisma = module.prisma;
   await prisma.$connect();
+  runDatabaseCommand('db:seed:members');
+  responsibleId = (await prisma.teamMember.findUniqueOrThrow({ where: { code: 'TI-001' } })).id;
 });
 
 afterAll(async () => {
@@ -80,7 +83,7 @@ describe('Persistencia de tareas en SQLite', () => {
 
   it('genera el identificador y las fechas y acepta una descripción opcional', async () => {
     const task = await database().task.create({
-      data: { title: 'Tarea persistente', responsible: 'Equipo TI', status: TaskStatus.PENDIENTE },
+      data: { title: 'Tarea persistente', responsibleId, status: TaskStatus.PENDIENTE },
     });
     expect(task.id).toBeGreaterThan(0);
     expect(task.createdAt).toBeInstanceOf(Date);
@@ -91,8 +94,8 @@ describe('Persistencia de tareas en SQLite', () => {
   it('permite títulos repetidos', async () => {
     const tasks = await database().task.createMany({
       data: [
-        { title: 'Título repetido', responsible: 'Ana', status: TaskStatus.PENDIENTE },
-        { title: 'Título repetido', responsible: 'Luis', status: TaskStatus.COMPLETADO },
+        { title: 'Título repetido', responsibleId, status: TaskStatus.PENDIENTE },
+        { title: 'Título repetido', responsibleId, status: TaskStatus.COMPLETADO },
       ],
     });
     expect(tasks.count).toBe(2);
@@ -101,32 +104,32 @@ describe('Persistencia de tareas en SQLite', () => {
   it('rechaza estados desconocidos y campos obligatorios nulos mediante SQL directo', async () => {
     expect(
       await database().$executeRaw`
-      INSERT INTO "Task" ("title", "responsible", "status")
-      VALUES ('Tarea desde SQL', 'Ana', 'PENDIENTE')
+      INSERT INTO "Task" ("title", "responsibleId", "status")
+      VALUES ('Tarea desde SQL', ${responsibleId}, 'PENDIENTE')
     `,
     ).toBe(1);
     for (const values of [
-      ['Tarea', 'Ana', 'DESCONOCIDO'],
-      [null, 'Ana', 'PENDIENTE'],
+      ['Tarea', responsibleId, 'DESCONOCIDO'],
+      [null, responsibleId, 'PENDIENTE'],
       ['Tarea', null, 'PENDIENTE'],
-      ['Tarea', 'Ana', null],
+      ['Tarea', responsibleId, null],
     ]) {
       await expect(database().$executeRaw`
-        INSERT INTO "Task" ("title", "responsible", "status")
+        INSERT INTO "Task" ("title", "responsibleId", "status")
         VALUES (${values[0]}, ${values[1]}, ${values[2]})
       `).rejects.toThrow();
     }
   });
 
-  it('rechaza títulos y responsables vacíos o demasiado largos', async () => {
+  it('rechaza títulos inválidos e identificadores de responsable fuera de rango', async () => {
     for (const values of [
-      ['   ', 'Ana'],
-      ['Tarea', '   '],
-      ['x'.repeat(151), 'Ana'],
-      ['Tarea', 'x'.repeat(101)],
+      ['   ', responsibleId],
+      ['Tarea', 0],
+      ['x'.repeat(151), responsibleId],
+      ['Tarea', 2147483648],
     ]) {
       await expect(database().$executeRaw`
-        INSERT INTO "Task" ("title", "responsible", "status")
+        INSERT INTO "Task" ("title", "responsibleId", "status")
         VALUES (${values[0]}, ${values[1]}, 'PENDIENTE')
       `).rejects.toThrow();
     }
@@ -134,7 +137,7 @@ describe('Persistencia de tareas en SQLite', () => {
       database().task.create({
         data: {
           title: 'Descripción extensa',
-          responsible: 'Ana',
+          responsibleId,
           status: TaskStatus.PENDIENTE,
           description: 'x'.repeat(2001),
         },
@@ -144,7 +147,7 @@ describe('Persistencia de tareas en SQLite', () => {
 
   it('actualiza la fecha de modificación y mantiene el identificador y la creación', async () => {
     const initial = await database().task.create({
-      data: { title: 'Editar tarea', responsible: 'Ana', status: TaskStatus.PENDIENTE },
+      data: { title: 'Editar tarea', responsibleId, status: TaskStatus.PENDIENTE },
     });
     const updated = await database().task.update({
       where: { id: initial.id },
@@ -160,7 +163,7 @@ describe('Persistencia de tareas en SQLite', () => {
     const task = await database().task.create({
       data: {
         title: 'Conservar después de reiniciar',
-        responsible: 'Ana',
+        responsibleId,
         status: TaskStatus.COMPLETADO,
       },
     });

@@ -67,13 +67,13 @@ describe('Especificación OpenAPI', () => {
       throw new Error('Faltan los esquemas de entrada.');
     const creation = schemaObject(schemas.CreateTask);
     const update = schemaObject(schemas.UpdateTask);
-    expect(creation.required).toEqual(['title', 'responsible', 'status']);
-    expect(update.required).toEqual(['title', 'description', 'responsible', 'status']);
+    expect(creation.required).toEqual(['title', 'responsibleId', 'status']);
+    expect(update.required).toEqual(['title', 'description', 'responsibleId', 'status']);
     for (const schema of [creation, update]) {
       expect(schema.additionalProperties).toBe(false);
       expect(Object.keys(schema.properties ?? {}).sort()).toEqual([
         'description',
-        'responsible',
+        'responsibleId',
         'status',
         'title',
       ]);

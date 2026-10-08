@@ -36,7 +36,8 @@
     "test:docs": "npm run test:docs --workspace backend",
     "docs:validate": "npm run docs:validate --workspace backend",
     "test:persistence": "npm run test:persistence --workspace backend",
-    "test:members": "npm run test:members --workspace backend"
+    "test:members": "npm run test:members --workspace backend",
+    "test:members:api": "npm run test:members:api --workspace backend"
   },
   "overrides": {
     "@prisma/config": {

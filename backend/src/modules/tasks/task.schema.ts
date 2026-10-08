@@ -17,16 +17,16 @@ export const createTaskSchema = z.strictObject(
       .max(2000, 'La descripción no puede superar los 2.000 caracteres.')
       .nullable()
       .optional(),
-    responsible: z
-      .string({
+    responsibleId: z
+      .number({
         error: (issue) =>
           issue.input === undefined
             ? 'El responsable es obligatorio.'
-            : 'El responsable debe ser un texto.',
+            : 'El responsable debe ser un identificador numérico.',
       })
-      .trim()
-      .min(1, 'El responsable es obligatorio.')
-      .max(100, 'El responsable no puede superar los 100 caracteres.'),
+      .int('El responsable debe ser un entero positivo.')
+      .min(1, 'El responsable debe ser un entero positivo.')
+      .max(2147483647, 'El identificador del responsable no puede superar 2147483647.'),
     status: z.enum(TaskStatus, {
       error: (issue) =>
         issue.input === undefined
@@ -37,7 +37,7 @@ export const createTaskSchema = z.strictObject(
   {
     error: (issue) =>
       issue.code === 'unrecognized_keys'
-        ? 'Solo se permiten los campos title, description, responsible y status.'
+        ? 'Solo se permiten los campos title, description, responsibleId y status.'
         : 'El cuerpo de la solicitud debe ser un objeto JSON.',
   },
 );

@@ -88,11 +88,13 @@ utiliza una terminal nueva si vienes de otra configuración.
 ```bash
 npm run db:generate
 npm run db:migrate
+npm run db:seed:members
 npm run db:status
 ```
 
 - `db:generate` crea el cliente Prisma que necesita el backend.
 - `db:migrate` crea el archivo SQLite y aplica las migraciones versionadas.
+- `db:seed:members` carga los integrantes necesarios para asignar tareas.
 - `db:status` debe indicar que las migraciones están al día.
 
 Con la configuración inicial, se crea **`backend/prisma/dev.db`**. La primera
@@ -117,9 +119,11 @@ npm run db:seed:members
 
 Se registran **TI-001 — Franco Cabello** y **TI-002 — Oscar Perez** en `TeamMember`.
 Repetir la carga no duplica registros ni cambia nombres, estados o fechas existentes.
-Es independiente del seed de tareas. En este avance el formulario todavía utiliza
-un responsable de texto libre; la consulta HTTP del catálogo y el selector se
-implementarán en las partes 11 y 12. [Guía del catálogo](docs/integrantes.md).
+El formulario consulta `GET /api/team-members` y permite elegir un integrante activo.
+El backend recibe su `responsibleId` y devuelve también su nombre y código.
+El seed de tareas de ejemplo requiere TI-001 y TI-002 activos; cargar integrantes
+no crea tareas.
+[Guía del catálogo](docs/integrantes.md).
 
 ### 5. Iniciar frontend y backend
 
@@ -167,26 +171,28 @@ de conexión o reiniciar únicamente la API, usa las terminales separadas.
 
 ## Comprobar que funciona
 
-1. Pulsa **Nueva tarea**, completa título y responsable, selecciona un estado y guarda.
+1. Pulsa **Nueva tarea**, completa título, selecciona responsable y estado y guarda.
 2. Recarga el navegador: la tarea debe permanecer guardada.
 3. Pulsa **Editar**, revisa los datos precargados, cambia el responsable o estado y guarda.
 4. Reinicia el backend y pulsa **Actualizar**: los cambios deben permanecer.
 5. Pulsa **Eliminar**, revisa el título y confirma; la tarea debe desaparecer.
 
 Título, responsable y estado son obligatorios. Los textos que contienen solo espacios
-no son válidos. Los límites son 150 caracteres para título, 100 para responsable y
-2.000 para descripción. La eliminación es **física y definitiva**; utiliza una tarea
+no son válidos. Los límites son 150 caracteres para título y 2.000 para descripción.
+El responsable debe pertenecer al catálogo activo. Si queda inactivo, las tareas
+anteriores pueden conservarlo al editar. La eliminación es **física y definitiva**; utiliza una tarea
 de prueba propia para este recorrido. [Recorrido completo y cobertura](docs/verificacion.md).
 
 ## API y Swagger
 
-| Método | Ruta             | Respuesta exitosa          |
-| ------ | ---------------- | -------------------------- |
-| GET    | `/api/health`    | `200`, estado del servidor |
-| GET    | `/api/tasks`     | `200`, lista de tareas     |
-| POST   | `/api/tasks`     | `201`, tarea creada        |
-| PUT    | `/api/tasks/:id` | `200`, tarea editada       |
-| DELETE | `/api/tasks/:id` | `204`, sin cuerpo          |
+| Método | Ruta                | Respuesta exitosa                          |
+| ------ | ------------------- | ------------------------------------------ |
+| GET    | `/api/health`       | `200`, estado del servidor                 |
+| GET    | `/api/team-members` | `200`, integrantes activos; `[]` si no hay |
+| GET    | `/api/tasks`        | `200`, lista de tareas                     |
+| POST   | `/api/tasks`        | `201`, tarea creada                        |
+| PUT    | `/api/tasks/:id`    | `200`, tarea editada                       |
+| DELETE | `/api/tasks/:id`    | `204`, sin cuerpo                          |
 
 En Swagger, abre una operación, pulsa **Try it out**, completa los datos y pulsa
 **Execute**. Las escrituras se realizan sobre la misma base que utiliza React.
@@ -213,6 +219,7 @@ y no modifican tu `dev.db`. Las de React simulan respuestas HTTP.
 | `npm run test:api`         | CRUD, validaciones, errores, CORS y contrato HTTP    |
 | `npm run test:persistence` | Migraciones, restricciones, seed y persistencia      |
 | `npm run test:members`     | Catálogo, carga repetible y conservación de tareas   |
+| `npm run test:members:api` | Consulta HTTP de activos, orden, campos y errores    |
 | `npm run test:lifecycle`   | CRUD por HTTP con reinicios reales del backend       |
 | `npm run test:docs`        | Ejemplos y esquemas OpenAPI                          |
 | `npm run docs:validate`    | Estructura y referencias de OpenAPI                  |
@@ -268,8 +275,9 @@ docs/                  Guías técnicas, verificación y entrega
 .github/workflows/     Integración continua
 ```
 
-El responsable de la tarea todavía es un texto libre. La tabla `TeamMember` contiene
-el catálogo inicial del equipo, sin relación con `Task` hasta la parte 12.
+Cada tarea referencia a un integrante de `TeamMember` mediante `responsibleId`.
+La clave foránea impide eliminar un integrante que tenga tareas. Crear o reasignar
+exige un integrante activo; editar permite conservar al responsable inactivo actual.
 `Task` representa una tarea y contiene también
 identificador y fechas. Prisma consulta el archivo SQLite local; no aloja la base
 en un servidor propio. No se utilizan procedimientos almacenados.
@@ -284,7 +292,8 @@ eliminación lógica si el negocio necesita recuperación.
 
 - [Solución de problemas de instalación y ejecución](docs/solucion-de-problemas.md).
 - [Consultar SQLite, DataGrip, Prisma Studio y migraciones](docs/base-de-datos.md).
-- [Catálogo de integrantes, seed y publicación de la parte 10](docs/integrantes.md).
+- [Catálogo de integrantes, seed y publicación por partes](docs/integrantes.md).
+- [Asignaciones, selector y migración de tareas existentes](docs/asignaciones.md).
 - [Plan de ampliación: partes 10 a 14](docs/plan-integrantes.md).
 - [Arquitectura, controladores y comportamiento del frontend](docs/arquitectura.md).
 - [API, Swagger y ejemplos de solicitudes](docs/api.md).

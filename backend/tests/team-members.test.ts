@@ -103,7 +103,7 @@ describe('Catálogo de integrantes', () => {
       data: { code: 'TI-999', name: 'Otra persona' },
     });
     const task = await prisma.task.create({
-      data: { title: 'Tarea previa', responsible: 'Texto actual', status: 'EN_PROCESO' },
+      data: { title: 'Tarea previa', responsibleId: existing.id, status: 'EN_PROCESO' },
     });
     runCommand(['run', 'db:seed:members']);
     expect(await prisma.teamMember.count()).toBe(3);
@@ -246,28 +246,26 @@ describe('Catálogo de integrantes', () => {
     );
     const legacy = client(legacyDatabase);
     try {
-      await legacy.task.create({
-        data: {
-          id: 37,
-          title: 'Información previa',
-          responsible: 'Responsable anterior',
-          description: 'Conservar contenido y fechas.',
-          status: 'COMPLETADO',
-          createdAt: new Date('2026-01-01T00:00:00.000Z'),
-          updatedAt: new Date('2026-02-01T00:00:00.000Z'),
-        },
-      });
-      await legacy.task.create({
-        data: { id: 105, title: 'Tarea temporal', responsible: 'Persona', status: 'PENDIENTE' },
-      });
-      await legacy.task.delete({ where: { id: 105 } });
-      const before = await legacy.task.findMany();
+      await legacy.$executeRaw`INSERT INTO "Task" (id, title, description, responsible, status, createdAt, updatedAt)
+      VALUES (37, 'Información previa', 'Conservar contenido y fechas.', 'Responsable anterior', 'COMPLETADO', 1767225600000, 1769904000000)`;
+      await legacy.$executeRaw`INSERT INTO "Task" (id, title, responsible, status) VALUES (105, 'Temporal', 'Persona', 'PENDIENTE')`;
+      await legacy.$executeRaw`DELETE FROM "Task" WHERE id = 105`;
+      const before = await legacy.$queryRaw`SELECT * FROM "Task" ORDER BY id`;
       const schemaBefore =
         await legacy.$queryRaw`SELECT name, sql FROM sqlite_master WHERE tbl_name = 'Task' ORDER BY name`;
       const sequenceBefore =
         await legacy.$queryRaw`SELECT seq FROM sqlite_sequence WHERE name = 'Task'`;
-      runCommand(['run', 'db:migrate'], legacyDatabase);
-      expect(await legacy.task.findMany()).toEqual(before);
+      const catalogMigration = '20261008214754_crear_integrantes';
+      mkdirSync(join(migrations, catalogMigration), { recursive: true });
+      copyFileSync(
+        join(backendDirectory, 'prisma/migrations', catalogMigration, 'migration.sql'),
+        join(migrations, catalogMigration, 'migration.sql'),
+      );
+      runCommand(
+        ['exec', '--', 'prisma', 'migrate', 'deploy', '--config', configPath],
+        legacyDatabase,
+      );
+      expect(await legacy.$queryRaw`SELECT * FROM "Task" ORDER BY id`).toEqual(before);
       expect(await legacy.teamMember.count()).toBe(0);
       expect(
         await legacy.$queryRaw`SELECT name, sql FROM sqlite_master WHERE tbl_name = 'Task' ORDER BY name`,
@@ -276,9 +274,12 @@ describe('Catálogo de integrantes', () => {
         sequenceBefore,
       );
       runCommand(['run', 'db:seed:members'], legacyDatabase);
-      runCommand(['run', 'db:migrate'], legacyDatabase);
+      runCommand(
+        ['exec', '--', 'prisma', 'migrate', 'deploy', '--config', configPath],
+        legacyDatabase,
+      );
       expect(await legacy.teamMember.count()).toBe(2);
-      expect(await legacy.task.findMany()).toEqual(before);
+      expect(await legacy.$queryRaw`SELECT * FROM "Task" ORDER BY id`).toEqual(before);
     } finally {
       await legacy.$disconnect();
     }

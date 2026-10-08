@@ -5,24 +5,35 @@ async function main() {
   const inserted = await prisma.$transaction(async (transaction) => {
     if ((await transaction.task.count()) > 0) return 0;
 
+    const members = await transaction.teamMember.findMany({
+      where: { code: { in: ['TI-001', 'TI-002'] }, isActive: true },
+      select: { id: true, code: true },
+    });
+    const franco = members.find((member) => member.code === 'TI-001');
+    const oscar = members.find((member) => member.code === 'TI-002');
+    if (!franco || !oscar)
+      throw new Error(
+        'Carga primero el catálogo con npm run db:seed:members y comprueba que TI-001 y TI-002 estén activos.',
+      );
+
     const result = await transaction.task.createMany({
       data: [
         {
           title: 'Revisar respaldos del servidor',
           description: 'Comprobar que los respaldos diarios finalizaron correctamente.',
-          responsible: 'Ana Torres',
+          responsibleId: franco.id,
           status: TaskStatus.PENDIENTE,
         },
         {
           title: 'Actualizar equipos del área de soporte',
           description: 'Instalar las actualizaciones aprobadas en los equipos del área.',
-          responsible: 'Luis Ramírez',
+          responsibleId: oscar.id,
           status: TaskStatus.EN_PROCESO,
         },
         {
           title: 'Documentar la configuración de la red',
           description: 'Registrar las direcciones y los equipos de la red interna.',
-          responsible: 'María López',
+          responsibleId: franco.id,
           status: TaskStatus.COMPLETADO,
         },
       ],

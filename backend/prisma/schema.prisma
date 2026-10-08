@@ -22,18 +22,21 @@ model TeamMember {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
+  tasks     Task[]
 
   @@index([isActive, name, code])
 }
 
 model Task {
-  id          Int        @id @default(autoincrement())
-  title       String
-  description String?
-  responsible String
-  status      TaskStatus
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @default(now()) @updatedAt
+  id            Int        @id @default(autoincrement())
+  title         String
+  description   String?
+  responsibleId Int
+  responsible   TeamMember @relation(fields: [responsibleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  status        TaskStatus
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @default(now()) @updatedAt
 
   @@index([createdAt, id])
+  @@index([responsibleId])
 }

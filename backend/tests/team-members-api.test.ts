@@ -153,8 +153,10 @@ describe('Consulta de integrantes activos por HTTP', () => {
 
   it('no modifica integrantes, fechas ni tareas al consultar el catálogo', async () => {
     await seedTeamMembers(prisma, initialTeamMembers);
+    const responsibleId = (await prisma.teamMember.findUniqueOrThrow({ where: { code: 'TI-001' } }))
+      .id;
     const task = await prisma.task.create({
-      data: { title: 'Tarea existente', responsible: 'Texto libre', status: 'PENDIENTE' },
+      data: { title: 'Tarea existente', responsibleId, status: 'PENDIENTE' },
     });
     const membersBefore = await prisma.teamMember.findMany({ orderBy: { id: 'asc' } });
     await request(app).get('/api/team-members').expect(200);
@@ -184,20 +186,20 @@ describe('Consulta de integrantes activos por HTTP', () => {
     expect(await prisma.teamMember.count()).toBe(0);
   });
 
-  it('mantiene el CRUD actual de tareas con responsable de texto sin modificar el catálogo', async () => {
+  it('mantiene el CRUD de tareas con integrantes registrados sin modificar el catálogo', async () => {
     await seedTeamMembers(prisma, initialTeamMembers);
     const membersBefore = await prisma.teamMember.findMany({ orderBy: { id: 'asc' } });
     const input = {
       title: 'Compatibilidad',
       description: null,
-      responsible: 'Responsable de texto',
+      responsibleId: membersBefore[0]!.id,
       status: 'PENDIENTE',
     };
     const created = await request(app).post('/api/tasks').send(input).expect(201);
     await expectDocumentedResponse(created, 'post', '/tasks');
     const updated = await request(app)
       .put(`/api/tasks/${created.body.id}`)
-      .send({ ...input, responsible: 'Otro texto', status: 'COMPLETADO' })
+      .send({ ...input, responsibleId: membersBefore[1]!.id, status: 'COMPLETADO' })
       .expect(200);
     await expectDocumentedResponse(updated, 'put', '/tasks/{id}');
     const list = await request(app).get('/api/tasks').expect(200);

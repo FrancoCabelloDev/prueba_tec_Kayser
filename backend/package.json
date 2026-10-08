@@ -20,7 +20,8 @@
     "test:docs": "vitest run tests/openapi.test.ts",
     "docs:validate": "tsx scripts/validate-openapi.ts",
     "test:persistence": "npm run db:generate && vitest run tests/persistence.test.ts",
-    "test:members": "npm run db:generate && vitest run tests/team-members.test.ts"
+    "test:members": "npm run db:generate && vitest run tests/team-members.test.ts",
+    "test:members:api": "npm run db:generate && vitest run tests/team-members-api.test.ts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "7.10.0",
