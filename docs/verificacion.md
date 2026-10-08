@@ -51,7 +51,7 @@ npm run dev:backend
    Cancela una vez; la tarea debe seguir existiendo. Confirma después y comprueba su desaparición.
 7. Recarga la página y verifica que la tarea eliminada no vuelve a aparecer.
 8. Comprueba también errores de validación, navegación con teclado, ancho móvil y
-   conservación de valores tras un fallo de guardado según el README.
+   conservación de valores tras un fallo de guardado según la [guía de arquitectura](arquitectura.md).
 
 Utiliza una tarea de prueba propia: la eliminación es física y las operaciones manuales
 modifican la base configurada. Si usas una base temporal para el recorrido, aplica primero
@@ -92,7 +92,7 @@ terminar correctamente para que aparezca el resultado verde.
 
 ## Revisar el resultado después del push manual
 
-1. Publica tu commit de la parte 8 siguiendo el README.
+1. Publica los cambios manualmente siguiendo la [guía de entrega](entrega.md).
 2. Abre tu repositorio en GitHub y selecciona **Actions**.
 3. Abre la ejecución **CI** que corresponde al commit que acabas de publicar.
 4. Comprueba que **Calidad (ubuntu-latest)** y **Calidad (windows-latest)** terminaron en verde.
@@ -102,3 +102,26 @@ terminar correctamente para que aparezca el resultado verde.
 También puedes entrar en Actions → CI → Run workflow para repetir una comprobación.
 La ejecución real en GitHub se confirma después del push. Una comprobación local exitosa
 no demuestra por sí sola que ambos runners remotos hayan finalizado correctamente.
+
+## Comprobación final de instalación desde cero
+
+El 8 de octubre de 2026 se verificó la entrega en Windows con Node.js 24.21.0 y npm
+11.19.0. Se clonó GitHub en una carpeta distinta usando el commit `98c1832` de la
+parte 8 y se aplicaron localmente las guías finales de la parte 9 antes de publicarlas.
+El clon llegó sin dependencias, `.env`, SQLite, cliente Prisma generado ni compilaciones.
+
+Resultados comprobados:
+
+- `npm ci`: instalación correcta desde el lockfile.
+- Copia de `.env.example`, generación de Prisma, migraciones y `db:status`: correctos.
+- `npm run check`: lint, formato, OpenAPI, tipos, compilación y **198 pruebas aprobadas**.
+- React: creación, recarga, edición, reinicio del backend, consulta, eliminación y recarga correctos.
+- La tarea editada permaneció en el archivo SQLite nuevo después del reinicio.
+- Salud y Swagger accesibles; frontend y backend compilados ejecutados correctamente.
+- `npm run db:seed`: tres ejemplos insertados en la tabla vacía del clon.
+
+La instalación habitual del candidato ocupaba 3000 y 5173, por lo que el clon utilizó
+3001 y 5174 siguiendo la guía de puertos alternativos. La vista previa se verificó en
+4173 con el origen CORS correspondiente. Los servidores y la base de la instalación
+habitual no se modificaron. Esta comprobación local no sustituye revisar CI para el
+commit final que el candidato publique.
