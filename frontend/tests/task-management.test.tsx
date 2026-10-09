@@ -4,9 +4,16 @@ vi.mock('../src/features/team-members/team-members.api', () => ({
 }));
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../src/App';
-import { deferredResponse, jsonResponse, tasks, members } from './fixtures';
+import { REQUEST_TIMEOUT_MS } from '../src/lib/api';
+import {
+  abortablePendingResponse,
+  deferredResponse,
+  jsonResponse,
+  tasks,
+  members,
+} from './fixtures';
 
 const fetchMock = vi.fn<typeof fetch>();
 const createdTask = {
@@ -21,6 +28,11 @@ beforeEach(() => {
   fetchMock.mockReset();
   vi.mocked(listActiveTeamMembers).mockReset().mockResolvedValue(members);
   vi.stubGlobal('fetch', fetchMock);
+});
+
+afterEach(() => {
+  vi.clearAllTimers();
+  vi.useRealTimers();
 });
 
 async function openCreate(user: ReturnType<typeof userEvent.setup>) {
@@ -40,6 +52,25 @@ async function fillCreate(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('Creación y edición', () => {
+  it.each(['\u0000', 'Tarea\u0000', 'Ta\u0000rea'])(
+    'rechaza el carácter nulo en el título antes de enviar (%j)',
+    async (title) => {
+      const user = userEvent.setup();
+      fetchMock.mockResolvedValueOnce(jsonResponse(tasks));
+      await openCreate(user);
+      await fillCreate(user);
+      fireEvent.change(screen.getByLabelText('Título', { exact: true }), {
+        target: { value: title },
+      });
+      await user.click(screen.getByRole('button', { name: 'Crear tarea' }));
+      expect(
+        await screen.findByText('El título contiene un carácter no permitido.'),
+      ).toBeInTheDocument();
+      expect(screen.getByLabelText('Título', { exact: true })).toHaveFocus();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it('crea desde una lista vacía, inicia en Pendiente y recarga el listado', async () => {
     const user = userEvent.setup();
     fetchMock
@@ -338,6 +369,102 @@ describe('Creación y edición', () => {
   });
 });
 
+describe('Recuperación de formularios tras agotar el tiempo de espera', () => {
+  it.each(['create', 'edit'] as const)(
+    'recupera %s, conserva todos los valores y permite cerrar con Escape',
+    async (action) => {
+      const user = userEvent.setup();
+      fetchMock
+        .mockResolvedValueOnce(jsonResponse(tasks))
+        .mockImplementationOnce((_url, options) => abortablePendingResponse(options!.signal!));
+      if (action === 'create') {
+        await openCreate(user);
+        await fillCreate(user);
+      } else {
+        render(<App />);
+        await user.click(
+          await screen.findByRole('button', { name: `Editar tarea: ${tasks[0]!.title}` }),
+        );
+        await waitFor(() =>
+          expect(screen.getByLabelText('Responsable', { exact: true })).toBeEnabled(),
+        );
+        fireEvent.change(screen.getByLabelText('Título', { exact: true }), {
+          target: { value: createdTask.title },
+        });
+        await user.selectOptions(
+          screen.getByLabelText('Responsable', { exact: true }),
+          String(createdTask.responsibleId),
+        );
+      }
+      fireEvent.change(screen.getByLabelText('Descripción (opcional)'), {
+        target: { value: 'Conservar descripción' },
+      });
+      await user.selectOptions(screen.getByLabelText('Estado'), 'COMPLETADO');
+      vi.useFakeTimers();
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole('button', {
+            name: action === 'create' ? 'Crear tarea' : 'Guardar cambios',
+          }),
+        );
+      });
+      expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS);
+      });
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Actualiza el listado para comprobar el resultado',
+      );
+      expect(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'false');
+      expect(screen.getByLabelText('Título', { exact: true })).toHaveValue(createdTask.title);
+      expect(screen.getByLabelText('Descripción (opcional)')).toHaveValue('Conservar descripción');
+      expect(screen.getByLabelText('Responsable', { exact: true })).toHaveValue(
+        String(createdTask.responsibleId),
+      );
+      expect(screen.getByLabelText('Estado')).toHaveValue('COMPLETADO');
+      expect(screen.getByLabelText('Título', { exact: true })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Cancelar' })).toBeEnabled();
+      expect(
+        screen.getByRole('button', {
+          name: action === 'create' ? 'Crear tarea' : 'Guardar cambios',
+        }),
+      ).toBeEnabled();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(screen.queryByText(/correctamente\./)).not.toBeInTheDocument();
+      fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }));
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    },
+  );
+
+  it('recupera la confirmación de eliminación sin retirar la tarea ni confirmar éxito', async () => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(tasks))
+      .mockImplementationOnce((_url, options) => abortablePendingResponse(options!.signal!));
+    render(<App />);
+    await user.click(
+      await screen.findByRole('button', { name: `Eliminar tarea: ${tasks[0]!.title}` }),
+    );
+    vi.useFakeTimers();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Eliminar tarea' }));
+    });
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS);
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent('No pudimos confirmar la operación');
+    expect(screen.getByRole('heading', { name: tasks[0]!.title })).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'false');
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Eliminar tarea' })).toBeEnabled();
+    expect(screen.queryByText('La tarea se eliminó correctamente.')).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+});
+
 describe('Eliminación con confirmación', () => {
   it('identifica la tarea, enfoca Cancelar y no elimina antes de confirmar', async () => {
     const user = userEvent.setup();
@@ -376,6 +503,7 @@ describe('Eliminación con confirmación', () => {
     expect(fetchMock.mock.calls[1]?.[1]).toEqual({
       method: 'DELETE',
       headers: { Accept: 'application/json' },
+      signal: expect.any(AbortSignal),
     });
   });
 

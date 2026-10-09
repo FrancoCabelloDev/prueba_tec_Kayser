@@ -359,6 +359,53 @@ async function existingTask() {
   });
 }
 
+describe('Títulos con caracteres nulos', () => {
+  it.each(['\u0000', 'Tarea\u0000', 'Ta\u0000rea'])(
+    'rechaza %j al crear y editar sin insertar ni alterar datos',
+    async (title) => {
+      const original = await existingTask();
+      const before = await prisma.task.findMany({ orderBy: { id: 'asc' } });
+      const responses = [
+        await request(app)
+          .post('/api/tasks')
+          .send({ ...validTask, title })
+          .expect(400),
+        await request(app)
+          .put(`/api/tasks/${original.id}`)
+          .send({ ...validUpdate, title })
+          .expect(400),
+      ];
+      for (const response of responses) {
+        expect(response.body.error).toEqual({
+          code: 'VALIDATION_ERROR',
+          message: 'Revisa los campos enviados.',
+          fields: { title: ['El título contiene un carácter no permitido.'] },
+        });
+      }
+      await expectDocumentedResponse(responses[0]!, 'post', '/tasks');
+      await expectDocumentedResponse(responses[1]!, 'put', '/tasks/{id}');
+      expect(await prisma.task.findMany({ orderBy: { id: 'asc' } })).toEqual(before);
+    },
+  );
+
+  it('conserva títulos válidos con tildes y ñ al crear y editar', async () => {
+    const title = 'Revisión de configuración del año';
+    const created = await request(app)
+      .post('/api/tasks')
+      .send({ ...validTask, title })
+      .expect(201);
+    const edited = await request(app)
+      .put(`/api/tasks/${created.body.id}`)
+      .send({ ...validUpdate, title: `${title} finalizada` })
+      .expect(200);
+    expect(created.body.title).toBe(title);
+    expect(edited.body.title).toBe(`${title} finalizada`);
+    expect((await prisma.task.findUniqueOrThrow({ where: { id: created.body.id } })).title).toBe(
+      edited.body.title,
+    );
+  });
+});
+
 describe('Edición de tareas por HTTP', () => {
   it.each(['PENDIENTE', 'EN_PROCESO', 'COMPLETADO'])(
     'edita todos los campos y permite cambiar al estado %s',

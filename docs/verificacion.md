@@ -288,3 +288,34 @@ Esta validación local corresponde a Windows. Los jobs remotos de Windows y Ubun
 se comprobarán después del commit y push manuales de la parte 14, siguiendo la
 [guía de entrega](entrega.md#commit-y-push-manuales-de-la-parte-14). El commit, el
 push y el envío por correo siguen a cargo del candidato.
+
+## Correcciones de la revisión técnica
+
+El 8 de octubre de 2026 se corrigieron y comprobaron las dos observaciones de la
+revisión, en Windows con Node.js 24.21.0 y npm 11.19.0:
+
+- El cliente HTTP centralizado limita las solicitudes a 15 segundos, incluyendo
+  la lectura del cuerpo. Conserva la cancelación del componente y libera el
+  temporizador y los listeners al terminar. Una escritura cuyo resultado no se
+  pudo confirmar pide consultar el listado antes de reintentar y no se reenvía
+  automáticamente.
+- Las pruebas de React simulan solicitudes sin respuesta y avanzan el tiempo con
+  temporizadores de prueba. Crear y editar conservan título, descripción,
+  responsable y estado; habilitan los controles y permiten cerrar el diálogo tras
+  el timeout. Eliminar conserva la tarea visible sin confirmar éxito y recupera
+  los botones del diálogo. Las pruebas del cliente cubren también cuerpos de
+  respuesta detenidos, consultas de tareas e integrantes y limpieza de recursos.
+- Frontend y backend rechazan el carácter nulo U+0000 en el título. Las pruebas
+  HTTP envían `"\u0000"`, `"Tarea\u0000"` y `"Ta\u0000rea"` al crear y editar:
+  reciben `400` con el mensaje de `title` y comprueban que las filas y fechas
+  permanecen iguales. Los títulos válidos con tildes y ñ siguen guardándose.
+- Swagger documenta y valida la restricción en los esquemas de entrada, conservando
+  el contrato de consulta. La guía de errores explica cómo verificar el resultado
+  de una escritura tras agotar la espera.
+- `npm run check` aprobó lint, formato, OpenAPI, tipos, compilación y **316 pruebas**:
+  76 de frontend y 240 de backend. Son 24 pruebas adicionales respecto de la parte 14.
+  Las pruebas del backend utilizan bases temporales y mantienen la cobertura de
+  persistencia, migraciones, asignaciones y reinicios reales.
+
+No se añadieron dependencias ni migraciones. El commit y el push quedan a cargo del
+candidato; los jobs remotos de GitHub Actions se verificarán después del push manual.

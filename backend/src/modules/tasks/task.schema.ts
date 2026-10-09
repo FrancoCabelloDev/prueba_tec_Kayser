@@ -10,7 +10,10 @@ export const createTaskSchema = z.strictObject(
       })
       .trim()
       .min(1, 'El título es obligatorio.')
-      .max(150, 'El título no puede superar los 150 caracteres.'),
+      .max(150, 'El título no puede superar los 150 caracteres.')
+      .refine((value) => !value.includes('\u0000'), {
+        message: 'El título contiene un carácter no permitido.',
+      }),
     description: z
       .string({ error: 'La descripción debe ser un texto.' })
       .trim()

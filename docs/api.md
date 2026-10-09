@@ -76,7 +76,10 @@ Solo se aceptan `title`, `description`, `responsibleId` y `status`:
 ```
 
 El backend recorta espacios al inicio y al final de los campos de texto antes de validar
-las longitudes. Rechaza títulos vacíos o de espacios. `responsibleId` debe ser un
+las longitudes. Rechaza títulos vacíos, de espacios o con el carácter nulo U+0000
+(`\u0000` en JSON). Este último caso devuelve `400` con el error asociado a `title`,
+sin insertar ni modificar la tarea. La misma regla se aplica al editar.
+`responsibleId` debe ser un
 entero JSON entre 1 y 2147483647 que corresponda a un integrante activo. Los nombres
 libres, objetos y números enviados como texto se rechazan.
 `description` puede omitirse, ser `null` o estar vacía; en esos casos se guarda como `null`.

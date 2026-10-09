@@ -343,6 +343,12 @@ components:
       pattern: \S
       description: Título obligatorio; las longitudes se validan después de recortar espacios.
       example: Revisar servidor de pruebas
+    TaskInputTitle:
+      allOf:
+        - $ref: '#/components/schemas/TaskTitle'
+        - type: string
+          pattern: '^[^\u0000]*$'
+          description: El título enviado no puede contener el carácter nulo U+0000.
     TaskDescription:
       type: string
       nullable: true
@@ -371,7 +377,7 @@ components:
         - status
       properties:
         title:
-          $ref: '#/components/schemas/TaskTitle'
+          $ref: '#/components/schemas/TaskInputTitle'
         description:
           $ref: '#/components/schemas/TaskDescription'
         status:
@@ -388,7 +394,7 @@ components:
         - status
       properties:
         title:
-          $ref: '#/components/schemas/TaskTitle'
+          $ref: '#/components/schemas/TaskInputTitle'
         description:
           $ref: '#/components/schemas/TaskDescription'
         status:

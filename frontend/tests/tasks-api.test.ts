@@ -34,6 +34,7 @@ describe('Cliente de escritura de tareas', () => {
           method,
           headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
           body: JSON.stringify(input),
+          signal: expect.any(AbortSignal),
         },
       );
     },
@@ -72,6 +73,7 @@ describe('Cliente de escritura de tareas', () => {
     expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:3000/api/tasks/3', {
       method: 'DELETE',
       headers: { Accept: 'application/json' },
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -92,13 +94,13 @@ describe('Cliente de escritura de tareas', () => {
 });
 
 describe('Cliente de consulta de tareas', () => {
-  it('consulta la URL configurada, pide JSON y propaga la señal de cancelación', async () => {
+  it('consulta la URL configurada, pide JSON e incluye una señal de cancelación', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(tasks));
     const controller = new AbortController();
     await expect(listTasks(controller.signal)).resolves.toEqual(tasks);
     expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:3000/api/tasks', {
       headers: { Accept: 'application/json' },
-      signal: controller.signal,
+      signal: expect.any(AbortSignal),
     });
   });
 

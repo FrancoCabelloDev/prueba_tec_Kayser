@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { Ajv } from 'ajv';
 import {
   documentedMethods,
   expectSchema,
@@ -7,6 +8,17 @@ import {
 } from './helpers/openapi.js';
 
 describe('Especificación OpenAPI', () => {
+  it('documenta el rechazo de títulos con caracteres nulos y admite tildes y ñ', async () => {
+    const document = await validatedOpenApi();
+    const definition = document.components?.schemas?.TaskInputTitle;
+    if (!definition) throw new Error('Falta el esquema del título de entrada.');
+    const validate = new Ajv({ strict: false }).compile(schemaObject(definition));
+    for (const title of ['\u0000', 'Tarea\u0000', 'Ta\u0000rea', '   ']) {
+      expect(validate(title)).toBe(false);
+    }
+    expect(validate('Revisión de configuración del año')).toBe(true);
+  });
+
   it('es válida, documenta las cuatro operaciones y utiliza el origen del servidor actual', async () => {
     const document = await validatedOpenApi();
     expect(document.openapi).toBe('3.0.3');

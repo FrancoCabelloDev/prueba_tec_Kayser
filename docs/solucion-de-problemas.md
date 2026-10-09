@@ -105,6 +105,20 @@ puede enviarse como `null`. Los estados de la API son `PENDIENTE`, `EN_PROCESO` 
 Para comprobar la compilación en el puerto 4173, usa ese origen en `FRONTEND_ORIGIN`;
 restaura 5173 antes de regresar al servidor de desarrollo.
 
+## El servidor tarda demasiado en responder
+
+El cliente HTTP de React limita cada solicitud a 15 segundos, incluyendo la lectura
+del cuerpo de la respuesta. El plazo se define en `REQUEST_TIMEOUT_MS`, en
+`frontend/src/lib/api.ts`. Al vencer, la espera se cancela y el formulario recupera
+sus controles; los valores introducidos se conservan. Las consultas de tareas e
+integrantes permiten reintentar cuando termina la espera.
+
+Si ocurre al crear, editar o eliminar, no se confirma éxito ni se reenvía la operación
+automáticamente. Cancelar la espera en el navegador no garantiza que el servidor haya
+cancelado la escritura. Cierra el diálogo con **Cancelar** y pulsa **Actualizar** para
+comprobar el resultado antes de volver a intentarlo. Revisa también la terminal del
+backend y la conexión siguiendo los pasos anteriores.
+
 ## Prisma Studio
 
 Si aparece `Prisma Studio is not supported for the ... protocol`, usa el comando

@@ -54,3 +54,11 @@ export function deferredResponse() {
   });
   return { promise, resolve };
 }
+
+// Simula la cancelación real de fetch cuando el servidor no responde.
+export function abortablePendingResponse(signal: AbortSignal): Promise<Response> {
+  return new Promise((_resolve, reject) => {
+    if (signal.aborted) reject(signal.reason);
+    else signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+  });
+}
