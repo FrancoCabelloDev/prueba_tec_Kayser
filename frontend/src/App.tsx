@@ -1,9 +1,16 @@
 import { useRef, useState } from 'react';
 import { DeleteTaskDialog } from './features/tasks/components/DeleteTaskDialog';
 import { TaskForm } from './features/tasks/components/TaskForm';
+import { TaskFilters } from './features/tasks/components/TaskFilters';
 import { TaskList } from './features/tasks/components/TaskList';
 import { useTasks } from './features/tasks/hooks/useTasks';
 import { createTask, deleteTask, updateTask } from './features/tasks/tasks.api';
+import {
+  defaultTaskFilters,
+  filterTasks,
+  getTaskResponsibles,
+  type TaskFilterValues,
+} from './features/tasks/tasks.filters';
 import type { Task, TaskInput } from './features/tasks/tasks.types';
 
 type TaskAction = { kind: 'create' } | { kind: 'edit' | 'delete'; task: Task };
@@ -12,7 +19,14 @@ export default function App() {
   const { state, reload } = useTasks();
   const [action, setAction] = useState<TaskAction | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [filters, setFilters] = useState<TaskFilterValues>(defaultTaskFilters);
   const newTaskButtonRef = useRef<HTMLButtonElement>(null);
+  const hasFilters = filters.status !== null || filters.responsibleId !== null;
+  const visibleTasks = state.status === 'success' ? filterTasks(state.tasks, filters) : [];
+
+  function clearFilters() {
+    setFilters(defaultTaskFilters);
+  }
 
   function openAction(nextAction: TaskAction) {
     setNotice(null);
@@ -67,6 +81,7 @@ export default function App() {
             <h2 id="workspace-title">Tareas registradas</h2>
             {state.status === 'success' && (
               <p className="task-count" role="status">
+                {hasFilters && `Mostrando ${visibleTasks.length} de `}
                 {state.tasks.length} {state.tasks.length === 1 ? 'tarea' : 'tareas'}
               </p>
             )}
@@ -95,12 +110,21 @@ export default function App() {
           </div>
         )}
         {state.status === 'success' && (
-          <TaskList
-            tasks={state.tasks}
-            onCreate={() => openAction({ kind: 'create' })}
-            onEdit={(task) => openAction({ kind: 'edit', task })}
-            onDelete={(task) => openAction({ kind: 'delete', task })}
-          />
+          <>
+            <TaskFilters
+              value={filters}
+              responsibles={getTaskResponsibles(state.tasks)}
+              onChange={setFilters}
+              onClear={clearFilters}
+            />
+            <TaskList
+              tasks={visibleTasks}
+              totalCount={state.tasks.length}
+              onCreate={() => openAction({ kind: 'create' })}
+              onEdit={(task) => openAction({ kind: 'edit', task })}
+              onDelete={(task) => openAction({ kind: 'delete', task })}
+            />
+          </>
         )}
       </section>
       {action && action.kind !== 'delete' && (

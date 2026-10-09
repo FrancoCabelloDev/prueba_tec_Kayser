@@ -48,8 +48,9 @@ frontend/
       tasks.api.ts    CRUD HTTP centralizado y errores de la API
       tasks.schema.ts Validación de respuestas y formulario con Zod
       tasks.types.ts  Tipos y etiquetas de los estados
+      tasks.filters.ts Criterios tipados y funciones puras de filtrado y responsables
       hooks/useTasks.ts Estados, reintento y cancelación
-      components/    Tarjetas, listado, formulario y confirmación de eliminación
+      components/    Filtros, tarjetas, listado, formulario y confirmación de eliminación
     features/team-members/
       team-members.schema.ts Contrato del catálogo
       team-members.api.ts Consulta HTTP de integrantes activos
@@ -173,6 +174,36 @@ accesibles, y los controles de actualización y reintento se pueden usar con tec
 Para probar el error, inicia frontend y backend en terminales separadas: el comando conjunto
 `npm run dev` detiene ambos cuando uno falla. No borres tu base para comprobar el estado vacío;
 puedes usar una base temporal distinta y aplicar sus migraciones.
+
+### Filtros locales de tareas
+
+`App` guarda únicamente los criterios seleccionados: estado e identificador del
+responsable. `filterTasks`, en `tasks.filters.ts`, calcula la lista visible durante
+el renderizado combinando ambos criterios con AND y preservando el orden de la API.
+La lista filtrada no se duplica en otro estado ni se sincroniza mediante un efecto.
+`TaskFilters` presenta controles con etiquetas accesibles y reutiliza los estados
+y sus textos definidos para las tareas.
+
+`getTaskResponsibles` deriva las opciones de la lista completa recibida, deduplica
+por identificador y ordena una copia por nombre y código. Las opciones no dependen
+del filtro de estado; incluyen responsables históricos inactivos. No requiere una
+consulta adicional al catálogo activo, que podría excluir esos responsables.
+
+Actualizar, crear, editar y eliminar conservan los criterios seleccionados. Cuando
+una persona deja de tener tareas, se mantiene una opción explícita para el criterio
+actual; así el selector y los resultados permanecen coherentes hasta cambiarlo o
+limpiarlo. El contador presenta las coincidencias sobre el total. `TaskList` distingue
+entre una base sin tareas y un resultado sin coincidencias.
+
+Los filtros se calculan en React porque la API devuelve el conjunto completo y el
+alcance es pequeño. Si se añade paginación en el servidor, también deberán enviarse
+los criterios a la API y aplicarse antes de seleccionar la página de resultados.
+
+Para comprobarlos, selecciona estado y responsable, revisa el contador y pulsa
+**Limpiar filtros**. Repite con criterios sin coincidencias y pulsa **Actualizar**
+para comprobar que la selección permanece. Las pruebas automatizadas incluyen
+creación, cambio de estado y responsable al editar y eliminación de la última tarea
+de una persona seleccionada.
 
 ## Crear, editar y eliminar desde React
 

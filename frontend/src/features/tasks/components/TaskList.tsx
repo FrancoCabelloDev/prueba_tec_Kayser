@@ -3,13 +3,22 @@ import { TaskCard } from './TaskCard';
 
 type TaskListProps = {
   tasks: Task[];
+  totalCount: number;
   onCreate: () => void;
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
 };
 
-export function TaskList({ tasks, onCreate, onEdit, onDelete }: TaskListProps) {
+export function TaskList({ tasks, totalCount, onCreate, onEdit, onDelete }: TaskListProps) {
   if (tasks.length === 0) {
+    if (totalCount > 0) {
+      return (
+        <div className="feedback-panel">
+          <h3>No hay tareas que coincidan con los filtros</h3>
+          <p>Selecciona otros criterios o utiliza Limpiar filtros para ver todas las tareas.</p>
+        </div>
+      );
+    }
     return (
       <div className="feedback-panel">
         <h3>No hay tareas registradas</h3>

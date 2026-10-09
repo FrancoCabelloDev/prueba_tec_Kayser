@@ -2,7 +2,7 @@
 
 Aplicación web para crear, consultar, editar y eliminar tareas. Cada tarea tiene
 título, descripción opcional, responsable y estado: **Pendiente**, **En Proceso** o
-**Completado**. Incluye validaciones, confirmación de eliminación, persistencia local,
+**Completado**. Incluye filtros por estado y responsable, validaciones, confirmación de eliminación, persistencia local,
 documentación interactiva de la API y pruebas automatizadas. No requiere login.
 
 ## Requisitos
@@ -175,6 +175,23 @@ El responsable debe pertenecer al catálogo activo. Si queda inactivo, las tarea
 anteriores pueden conservarlo al editar. La eliminación es **física y definitiva**; utiliza una tarea
 de prueba propia para este recorrido. [Recorrido completo y cobertura](docs/verificacion.md).
 
+## Filtrar las tareas
+
+Encima del listado aparecen **Filtrar por estado** y **Filtrar por responsable**.
+Puedes utilizar uno o combinar ambos; una tarea debe cumplir los dos criterios
+seleccionados para mostrarse. **Limpiar filtros** vuelve a mostrar el listado completo.
+
+El selector de responsables muestra las personas con tareas registradas, ordenadas
+por nombre y código. Incluye a los inactivos con tareas históricas y distingue
+homónimos por código. El contador indica cuántas tareas coinciden y cuántas existen
+en total. Si no hay coincidencias, puedes cambiar los criterios o limpiarlos.
+
+Los filtros se conservan al pulsar **Actualizar**, reintentar una consulta o realizar
+operaciones CRUD. Si una persona seleccionada deja de tener tareas, el selector
+conserva el criterio como **Responsable seleccionado (sin tareas)** hasta que lo
+cambies o limpies los filtros. React filtra el listado completo recibido de la API;
+seleccionar criterios no realiza nuevas solicitudes ni cambia los datos guardados.
+
 ## API y Swagger
 
 | Método | Ruta                | Respuesta exitosa                          |
@@ -206,22 +223,22 @@ Comprueba lint, formato, OpenAPI, tipos, compilación y todas las pruebas. No ne
 los servidores iniciados. Las pruebas del backend utilizan bases temporales aisladas
 y no modifican tu `dev.db`. Las de React simulan respuestas HTTP.
 
-| Comando                    | Función                                              |
-| -------------------------- | ---------------------------------------------------- |
-| `npm test`                 | Todas las pruebas de frontend y backend              |
-| `npm run test:frontend`    | Listado, formularios, errores y eliminación en React |
-| `npm run test:api`         | CRUD, validaciones, errores, CORS y contrato HTTP    |
-| `npm run test:persistence` | Migraciones, restricciones, seed y persistencia      |
-| `npm run test:members`     | Catálogo, carga repetible y conservación de tareas   |
-| `npm run test:members:api` | Consulta HTTP de activos, orden, campos y errores    |
-| `npm run test:lifecycle`   | CRUD por HTTP con reinicios reales del backend       |
-| `npm run test:docs`        | Ejemplos y esquemas OpenAPI                          |
-| `npm run docs:validate`    | Estructura y referencias de OpenAPI                  |
-| `npm run lint`             | Reglas de ESLint                                     |
-| `npm run typecheck`        | Tipos de frontend y backend; genera Prisma           |
-| `npm run format:check`     | Formato, sin modificar archivos                      |
-| `npm run format`           | Aplicar formato                                      |
-| `npm run build`            | Comprobar tipos y compilar ambos proyectos           |
+| Comando                    | Función                                                       |
+| -------------------------- | ------------------------------------------------------------- |
+| `npm test`                 | Todas las pruebas de frontend y backend                       |
+| `npm run test:frontend`    | Listado, filtros, formularios, errores y eliminación en React |
+| `npm run test:api`         | CRUD, validaciones, errores, CORS y contrato HTTP             |
+| `npm run test:persistence` | Migraciones, restricciones, seed y persistencia               |
+| `npm run test:members`     | Catálogo, carga repetible y conservación de tareas            |
+| `npm run test:members:api` | Consulta HTTP de activos, orden, campos y errores             |
+| `npm run test:lifecycle`   | CRUD por HTTP con reinicios reales del backend                |
+| `npm run test:docs`        | Ejemplos y esquemas OpenAPI                                   |
+| `npm run docs:validate`    | Estructura y referencias de OpenAPI                           |
+| `npm run lint`             | Reglas de ESLint                                              |
+| `npm run typecheck`        | Tipos de frontend y backend; genera Prisma                    |
+| `npm run format:check`     | Formato, sin modificar archivos                               |
+| `npm run format`           | Aplicar formato                                               |
+| `npm run build`            | Comprobar tipos y compilar ambos proyectos                    |
 
 GitHub Actions ejecuta los controles en Windows y Ubuntu en cada push o pull request.
 El workflow está en `.github/workflows/ci.yml`. [Cómo revisar CI](docs/verificacion.md#github-actions).
@@ -278,8 +295,8 @@ en un servidor propio. No se utilizan procedimientos almacenados.
 
 El alcance es un CRUD para una prueba técnica con un catálogo inicial de integrantes.
 No incluye autenticación, administración de integrantes desde la interfaz,
-paginación, filtros, historial ni recuperación de tareas eliminadas. Posibles mejoras:
-usuarios y permisos, filtros y paginación, control de ediciones concurrentes y
+paginación, búsqueda por título, historial ni recuperación de tareas eliminadas. Posibles mejoras:
+usuarios y permisos, búsqueda y paginación desde el servidor, control de ediciones concurrentes y
 eliminación lógica si el negocio necesita recuperación.
 
 Desactivar integrantes requiere una actualización explícita en la base; no hay

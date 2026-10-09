@@ -319,3 +319,32 @@ revisión, en Windows con Node.js 24.21.0 y npm 11.19.0:
 
 No se añadieron dependencias ni migraciones. El commit y el push quedan a cargo del
 candidato; los jobs remotos de GitHub Actions se verificarán después del push manual.
+
+## Filtros por estado y responsable
+
+El 8 de octubre de 2026 se incorporaron filtros combinables en React. La API sigue
+devolviendo la lista completa y seleccionar criterios no genera solicitudes nuevas.
+Los criterios se mantienen al actualizar, reintentar y realizar operaciones CRUD.
+
+Resultados comprobados en Windows con Node.js 24.21.0 y npm 11.19.0:
+
+- `npm run check` aprobó lint, formato, OpenAPI, tipos, compilación y **330 pruebas**:
+  90 de frontend y 240 de backend. Se añadieron 14 pruebas de filtros.
+- Las pruebas verifican los tres estados, combinación con responsable, eliminación
+  independiente de cada criterio, limpieza completa, contador, orden original y
+  diferencia entre una base vacía y un resultado sin coincidencias.
+- El selector incluye históricos inactivos, distingue homónimos por código y
+  deduplica por identificador. Sus opciones se obtienen de la lista completa y
+  permanecen disponibles al seleccionar un estado.
+- Crear una tarea que no coincide, reasignar y cambiar el estado al editar y
+  eliminar la última tarea de un responsable seleccionado conservan los criterios
+  y recalculan las coincidencias. Si el responsable deja de tener tareas, una
+  opción explícita conserva la selección hasta cambiarla o limpiar los filtros.
+- En el navegador se comprobó Completado + Oscar Perez sin coincidencias y
+  Completado + Franco Cabello con la tarea Aceptar PR. Actualizar conservó ambas
+  selecciones y Limpiar filtros recuperó las tres tareas existentes.
+  Este recorrido utilizó únicamente filtros y consultas; no escribió tareas.
+  La captura quedó en `.document_work/filtros-estado-responsable.png`, excluida de Git.
+
+Se actualizaron el README y la guía de arquitectura. El commit y el push siguen
+a cargo del candidato; GitHub Actions comprobará el avance después del push manual.
